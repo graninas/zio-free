@@ -1,0 +1,74 @@
+name:                zio-free
+version:             1.1.0.0
+github:              "graninas/zio-free"
+license:             BSD3
+author:              "Alexander Granin"
+maintainer:          "graninas@gmail.com"
+copyright:           "Granin A.S. 2020"
+
+description:
+  Experimental port of Scala's ZIO.
+
+default-extensions:
+- NoImplicitPrelude
+- GADTs
+- RankNTypes
+- DeriveFunctor
+- DeriveGeneric
+- OverloadedStrings
+- LambdaCase
+- MultiParamTypeClasses
+- ExplicitNamespaces
+- TypeApplications
+- ScopedTypeVariables
+- TypeOperators
+- TypeFamilies
+- DataKinds
+- FlexibleContexts
+- FlexibleInstances
+- PatternSynonyms
+- PolyKinds
+- DefaultSignatures
+- ConstraintKinds
+- NamedFieldPuns
+- TupleSections
+- ViewPatterns
+- MultiWayIf
+- RecordWildCards
+
+dependencies:
+- base >= 4.7 && < 5
+- bytestring
+- network
+- aeson
+- aeson-pretty
+- mtl
+- directory
+- filepath
+- process
+- extra
+- time
+- clock
+- scientific
+- containers
+- random
+- free
+- transformers
+- template-haskell
+- async
+- text
+- newtype-generics
+- lens
+- universum
+- fmt
+- stm
+- hslogger
+- entropy
+- uuid
+- data-default
+
+library:
+  source-dirs:
+  - src
+  ghc-options:
+  - -Wall
