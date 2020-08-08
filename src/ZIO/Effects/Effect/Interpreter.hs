@@ -13,35 +13,31 @@ import qualified ZIO.Types as T
 runSyncIO = R.runIOEff
 runSyncConsole = R.runConsole
 
--- interpretEffectFAsync :: R.ZIORuntime -> L.EffectF a -> IO a
--- interpretEffectFAsync rt (L.RunIOEff ioEff next) = do
---   var <- newEmptyMVar
---   void $ forkIO $ do
---     r <- runSyncIO rt ioEff
---     putMVar var r
---   pure $ do
---     val <- takeMVar var
---     runEffectAsync rt $ next val
+-- interpretEffectFAsync :: R.ZIORuntime -> L.EffectF T.Async a -> IO a
+interpretEffectFAsync rt (L.RunIOEff ioEff next) = do
+  var <- newEmptyMVar
+  void $ forkIO $ do
+    r <- runSyncIO rt ioEff
+    putMVar var r
+  pure $ runEffectAsync rt $ next $ T.Async var
 
--- interpretEffectFAsync rt (L.RunConsole consoleAct next) = do
---   var <- newEmptyMVar
---   void $ forkIO $ do
---     r <- runSyncConsole rt consoleAct
---     putMVar var r
---   pure $ do
---     val <- takeMVar var
---     runEffectAsync rt $ next val
+interpretEffectFAsync rt (L.RunConsole consoleAct next) = do
+  var <- newEmptyMVar
+  void $ forkIO $ do
+    r <- runSyncConsole rt consoleAct
+    putMVar var r
+  pure $ runEffectAsync rt $ next $ T.Async var
 
--- runEffectAsync :: R.ZIORuntime -> L.Effect a -> IO (Delayed a)
--- runEffectAsync rt (Pure v) = T.Delayed <$> newMVar v
--- runEffectAsync rt (Free f) = do
---   act <- interpretEffectFAsync rt f
---   var <- newEmptyMVar
---   void $ forkIO $ do
---     T.Delayed var' <- act
---     val <- takeMVar var'
---     putMVar var val
---   pure $ T.Delayed var
+runEffectAsync :: R.ZIORuntime -> L.EffectAsync a -> IO (T.Async a)
+runEffectAsync rt (Pure v) = T.Async <$> newMVar v
+runEffectAsync rt (Free f) = do
+  act <- interpretEffectFAsync rt f
+  var <- newEmptyMVar
+  void $ forkIO $ do
+    T.Async var' <- act
+    val <- takeMVar var'
+    putMVar var val
+  pure $ T.Async var
 
 
 

@@ -14,9 +14,9 @@ import ZIO.Effects.Effect.Language as L
 
 app :: ZIO Int
 app = do
-  line <- runEffect $ runIO $ pure "App methods finished."
+  line <- runAsync $ asAsync $ runIO $ pure "App methods finished."
 
-  eRes1 <- runEffect $ runIO $ do
+  eRes1 <- runAsync $ asAsync $ runIO $ do
     threadDelay $ 1000 * 1000
     P.putStrLn "Downloading 1..."
     _ :: Either SomeException String <- try $ Proc.readCreateProcess (Proc.shell "wget https://gist.github.com/graninas/01565065c18c01e88a5ebcbfbb96e397") ""
@@ -24,7 +24,7 @@ app = do
     threadDelay $ 1000 * 500
     try $ P.readFile "01565065c18c01e88a5ebcbfbb96e397"
 
-  eRes2 <- runEffect $ runIO $ do
+  eRes2 <- runAsync $ asAsync $ runIO $ do
     threadDelay $ 1000 * 500
     P.putStrLn "Downloading 2..."
     _ :: Either SomeException String <- try $ Proc.readCreateProcess (Proc.shell "wget https://gist.github.com/graninas/c7e0a603f3a22c7e85daa4599bf92525") ""
@@ -32,7 +32,7 @@ app = do
     threadDelay $ 1000 * 1000
     try $ P.readFile "c7e0a603f3a22c7e85daa4599bf92525"
 
-  runEffect $ runIO $ do
+  runAsync $ asAsync $ runIO $ do
     P.putStrLn line
     let (content1, content2, size) = case (eRes1, eRes2) of
           (Left (err1 :: SomeException), _) -> (show err1, "", 0)
@@ -47,8 +47,8 @@ app = do
 main :: IO ()
 main = do
   rt <- R.createZIORuntime
-  v1 <- R.runZIOSync rt app
+  v1 <- R.runZIO rt app
   P.putStrLn $ show v1
-  -- R.Delayed var2 <- R.runZIOAsync rt app
+  -- R.Async var2 <- R.runZIO rt app
   -- v2 <- takeMVar var2
   -- P.putStrLn $ show v2
