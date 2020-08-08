@@ -10,19 +10,21 @@ import qualified System.Process as Proc
 
 import qualified ZIO.Effects.Console.Language as L
 import qualified ZIO.Effects.IO.Language as L
+import qualified ZIO.Types as T
 
-data EffectF next where
-  RunConsole :: L.Console a -> (a -> next) -> EffectF next
-  RunIOEff :: L.IOEff a -> (a -> next) -> EffectF next
+data EffectF m next where
+  RunConsole :: L.Console a -> (m a -> next) -> EffectF m next
+  RunIOEff :: L.IOEff a -> (m a -> next) -> EffectF m next
 
-type Effect = Free EffectF
+type Effect = Free (EffectF Identity)
+type EffectAsync = Free (EffectF T.Async)
 
-instance Functor EffectF where
+instance Functor (EffectF m) where
   fmap f (RunConsole act next) = RunConsole act (f . next)
   fmap f (RunIOEff ioEff next) = RunIOEff ioEff (f . next)
 
 runConsole :: L.Console a -> Effect a
-runConsole consoleAct = liftF $ RunConsole consoleAct id
+runConsole consoleAct = runIdentity <$> (liftF $ RunConsole consoleAct id)
 
 runIO :: IO a -> Effect a
-runIO ioEff = liftF $ RunIOEff (L.runIO' ioEff) id
+runIO ioEff = runIdentity <$> (liftF $ RunIOEff (L.runIO' ioEff) id)

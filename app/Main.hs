@@ -47,8 +47,8 @@ app = do
 main :: IO ()
 main = do
   rt <- R.createZIORuntime
-  -- v1 <- R.runZIOSync rt app
-  -- P.putStrLn $ show v1
-  R.Delayed var2 <- R.runZIOAsync rt app
-  v2 <- takeMVar var2
-  P.putStrLn $ show v2
+  v1 <- R.runZIOSync rt app
+  P.putStrLn $ show v1
+  -- R.Delayed var2 <- R.runZIOAsync rt app
+  -- v2 <- takeMVar var2
+  -- P.putStrLn $ show v2
