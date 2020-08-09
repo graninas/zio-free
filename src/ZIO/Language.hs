@@ -8,24 +8,24 @@ import           ZIO.Prelude
 
 import qualified ZIO.Effects.Effect.Language as L
 import qualified ZIO.Types as T
-import           Unsafe.Coerce (unsafeCoerce)
 
-data ZIOF m next where
-  RunAsync :: L.EffectAsync a -> (m a -> next) -> ZIOF m next
-  RunSync :: L.Effect a -> (m a -> next) -> ZIOF m next
+data ZIOF next where
+  RunAsync :: L.EffectAsync a -> (a -> next) -> ZIOF next
+  RunSync :: L.Effect a -> (a -> next) -> ZIOF next
+  Await' :: T.Async a -> (a -> next) -> ZIOF next
 
-instance Functor (ZIOF m) where
+instance Functor ZIOF  where
   fmap f (RunAsync act next) = RunAsync act (f . next)
   fmap f (RunSync act next) = RunSync act (f . next)
+  fmap f (Await' var next) = Await' var (f . next)
 
-type ZIO = Free (ZIOF Identity)
-type ZIOAsync = Free (ZIOF T.Async)
+type ZIO = Free ZIOF
 
 runAsync :: L.EffectAsync a -> ZIO a
-runAsync act = runIdentity <$> (liftF $ RunAsync act id)
+runAsync eff = liftF $ RunAsync eff id
 
 runSync :: L.Effect a -> ZIO a
-runSync act = runIdentity <$> (liftF $ RunSync act id)
+runSync eff = liftF $ RunSync eff id
 
-asAsync :: L.Effect a -> L.EffectAsync a
-asAsync = unsafeCoerce
+instance L.Awaitable ZIO where
+  await var = liftF $ Await' var id

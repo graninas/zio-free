@@ -4,11 +4,11 @@ module ZIO.Types where
 
 import           ZIO.Prelude
 
-import qualified Data.Map                        as Map
+import qualified Data.Map as Map
 
-newtype Delayed a = Delayed (MVar a)
 
-newtype Async a = Async (MVar a)
+
+data Async a = Async (MVar a) | Ready a
 
 
 -- "Higher-Kinded Data"

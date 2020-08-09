@@ -12,14 +12,21 @@ import qualified ZIO.Types  as T
 import qualified ZIO.Effects.Effect.Interpreter as R
 
 
-interpretZIOF :: R.ZIORuntime -> L.ZIOF Identity a -> IO a
+interpretZIOF :: R.ZIORuntime -> L.ZIOF a -> IO a
 interpretZIOF rt (L.RunSync eff next) = do
-  next . Identity <$> R.runEffect rt eff
+  next <$> R.runEffect rt eff
 
 interpretZIOF rt (L.RunAsync eff next) = do
-  T.Async var <- R.runEffectAsync rt eff
-  r <- takeMVar var
-  pure $ next $ Identity r
+  asyncVar <- R.runEffectAsync rt eff
+  case asyncVar of
+    T.Async var -> next <$> takeMVar var
+    T.Ready val -> pure $ next val
+
+interpretZIOF rt (L.Await' (T.Async var) next) =
+  next <$> takeMVar var
+
+interpretZIOF rt (L.Await' (T.Ready val) next) =
+  pure $ next val
 
 runZIO :: R.ZIORuntime -> L.ZIO a -> IO a
 runZIO rt = foldFree (interpretZIOF rt)

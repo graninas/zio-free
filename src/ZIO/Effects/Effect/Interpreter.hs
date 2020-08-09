@@ -28,15 +28,25 @@ interpretEffectFAsync rt (L.RunConsole consoleAct next) = do
     putMVar var r
   pure $ runEffectAsync rt $ next $ T.Async var
 
+interpretEffectFAsync rt (L.Await (T.Async var) next) = do
+  val <- takeMVar var
+  pure $ runEffectAsync rt $ next val
+
+interpretEffectFAsync rt (L.Await (T.Ready val) next) =
+  pure $ runEffectAsync rt $ next val
+
 runEffectAsync :: R.ZIORuntime -> L.EffectAsync a -> IO (T.Async a)
 runEffectAsync rt (Pure v) = T.Async <$> newMVar v
 runEffectAsync rt (Free f) = do
   act <- interpretEffectFAsync rt f
   var <- newEmptyMVar
   void $ forkIO $ do
-    T.Async var' <- act
-    val <- takeMVar var'
-    putMVar var val
+    asyncVar <- act
+    case asyncVar of
+      T.Async var' -> do
+        val' <- takeMVar var'
+        putMVar var val'
+      T.Ready val' -> putMVar var val'
   pure $ T.Async var
 
 
