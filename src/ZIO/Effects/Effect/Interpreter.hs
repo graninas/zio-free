@@ -36,7 +36,7 @@ interpretEffectFAsync rt (L.Await (T.Ready val) next) =
   pure $ runEffectAsync rt $ next val
 
 runEffectAsync :: R.ZIORuntime -> L.EffectAsync a -> IO (T.Async a)
-runEffectAsync rt (Pure v) = T.Async <$> newMVar v
+runEffectAsync rt (Pure v) = pure $ T.Ready v
 runEffectAsync rt (Free f) = do
   act <- interpretEffectFAsync rt f
   var <- newEmptyMVar
