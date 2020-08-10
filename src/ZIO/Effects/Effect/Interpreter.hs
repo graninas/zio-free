@@ -13,7 +13,10 @@ import qualified ZIO.Types as T
 runSyncIO = R.runIOEff
 runSyncConsole = R.runConsole
 
--- interpretEffectFAsync :: R.ZIORuntime -> L.EffectF T.Async a -> IO a
+interpretEffectFAsync
+  :: R.ZIORuntime
+  -> L.EffectF T.Async (L.EffectAsync a)
+  -> IO (IO (T.Async a))
 interpretEffectFAsync rt (L.RunIOEff ioEff next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
@@ -49,7 +52,34 @@ runEffectAsync rt (Free f) = do
       T.Ready val' -> putMVar var val'
   pure $ T.Async var
 
+-----------------------------------------
 
+interpretEffectFAsyncSynchronously
+  :: R.ZIORuntime
+  -> L.EffectF T.Async (L.EffectAsync a)
+  -> IO (IO (T.Async a))
+interpretEffectFAsyncSynchronously rt (L.RunIOEff ioEff next) = do
+  val <- runSyncIO rt ioEff
+  pure $ runAsyncEffectSynchronously rt $ next $ T.Ready val
+
+interpretEffectFAsyncSynchronously rt (L.RunConsole consoleAct next) = do
+  val <- runSyncConsole rt consoleAct
+  pure $ runAsyncEffectSynchronously rt $ next $ T.Ready val
+
+interpretEffectFAsyncSynchronously rt (L.Await (T.Async var) next) = do
+  val <- takeMVar var
+  pure $ runAsyncEffectSynchronously rt $ next val
+
+interpretEffectFAsyncSynchronously rt (L.Await (T.Ready val) next) =
+  pure $ runAsyncEffectSynchronously rt $ next val
+
+runAsyncEffectSynchronously :: R.ZIORuntime -> L.EffectAsync a -> IO (T.Async a)
+runAsyncEffectSynchronously rt (Pure v) = pure $ T.Ready v
+runAsyncEffectSynchronously rt (Free f) = do
+  act <- interpretEffectFAsyncSynchronously rt f
+  act
+
+-------------------------------------------
 
 interpretEffectF :: R.ZIORuntime -> L.EffectF Identity a -> IO a
 interpretEffectF rt (L.RunConsole consoleAct next) =
@@ -57,6 +87,12 @@ interpretEffectF rt (L.RunConsole consoleAct next) =
 
 interpretEffectF rt (L.RunIOEff ioEff next) =
   next . Identity <$> R.runIOEff rt ioEff
+
+interpretEffectF rt (L.Await (T.Async var) next) =
+  next <$> takeMVar var
+
+interpretEffectF rt (L.Await (T.Ready val) next) =
+  pure $ next val
 
 runEffect :: R.ZIORuntime -> L.Effect a -> IO a
 runEffect rt = foldFree (interpretEffectF rt)

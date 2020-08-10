@@ -62,12 +62,14 @@ appLogic = do
 
 
 app :: ZIO String
-app = runAsync appLogic
-
+app = do
+  v1 <- runAsync appLogic
+  -- v2 <- runSynchronously appLogic
+  pure v1
 
 main :: IO ()
 main = do
   rt <- R.createZIORuntime
   v1 <- R.runZIO rt app
-  -- P.putStrLn v1
+
   void $ P.getLine
