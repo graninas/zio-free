@@ -11,29 +11,39 @@ import ZIO.Effects.IO.Language as L
 import ZIO.Effects.Console.Language as L
 import ZIO.Effects.Effect.Language as L
 
+fibonacci :: Integer -> Integer
+fibonacci n = take n fibs
+  where
+    fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
 
-app :: ZIO Int
+factorial :: Integer -> Integer
+factorial n = product [1..n]
+
+app :: ZIO (Integer, Integer)
 app = do
   line <- runEffect $ runIO P.getLine
 
-  eRes <- runEffect $ runIO $ do
-    _ :: Either SomeException String <- try $ Proc.readCreateProcess (Proc.shell "wget https://gist.github.com/graninas/01565065c18c01e88a5ebcbfbb96e397") ""
-    try $ P.readFile "01565065c18c01e88a5ebcbfbb96e397"
+  fib <- runEffect $ runIO $ do
+    P.putStrLn "Action 1 started."
+    threadDelay $ 1000 * 1000
+    let fib = fibonacci 20
+    P.putStrLn "Action 1 finished."
+    pure fib
 
-  runEffect $ runIO $ do
-    P.putStrLn line
-    let (content, size) = case eRes of
-          Left (err :: SomeException) -> (show err, 0)
-          Right content -> (content, length content)
-    P.putStrLn content
-    P.putStrLn $ show size
-    pure size
+  fact <- runEffect $ runIO $ do
+    P.putStrLn "Action 2 started."
+    let fact = factorial 20
+    P.putStrLn "Action 2 finished."
+    pure fact
+
+  pure (fib, fact)
 
 
 main :: IO ()
 main = do
   rt <- R.createZIORuntime
   v1 <- R.runZIOSync rt app
-  R.Delayed var2 <- R.runZIOAsync rt app
-  v2 <- takeMVar var2
-  P.putStrLn $ show $ v1 + v2
+  asyncVar <- R.runZIOAsync rt app
+  (fib, fact) <- R.awaitAsyncVar asyncVar
+  P.putStrLn $ "Fib: " <> show fib
+  P.putStrLn $ "Fact: " <> show fact

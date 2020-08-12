@@ -9,36 +9,12 @@ import qualified ZIO.Effects.Console.Interpreter as R
 import qualified ZIO.Effects.IO.Interpreter as R
 import qualified ZIO.Runtime as R
 
---
--- app :: Effect Int
--- app = do
---   aLine :: Delayed String <- async $ runIO P.getLine
---
---   eRes <- async $ runIO $ do
---     void $ try @SomeException $ Proc.readCreateProcess (Proc.shell "wget https://gist.github.com/graninas/01565065c18c01e88a5ebcbfbb96e397") ""
---     try @SomeException $ P.readFile "01565065c18c01e88a5ebcbfbb96e397"
---
---   withAsync (aLine, eRes) $ \(line, res) ->
---     runIO $ do
---       P.putStrLn line
---       (content, size) <- case eRes of
---         Left err -> show err
---         Right content -> content
---       P.putStrLn content
---       P.putStrLn $ show size
---       pure size
 
-
-
-runSyncIO = R.runIOEff
-runSyncConsole = R.runConsole
-
-
--- interpretEffectFAsync :: R.ZIORuntime -> L.EffectF a -> IO a
+-- interpretEffectFAsync :: R.ZIORuntime -> L.EffectF a -> IO (L.Effect a)
 interpretEffectFAsync rt (L.RunIOEff ioEff next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
-    r <- runSyncIO rt ioEff
+    r <- R.runIOEff rt ioEff
     putMVar var r
   pure $ do
     val <- takeMVar var
@@ -47,7 +23,7 @@ interpretEffectFAsync rt (L.RunIOEff ioEff next) = do
 interpretEffectFAsync rt (L.RunConsole consoleAct next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
-    r <- runSyncConsole rt consoleAct
+    r <- R.runConsole rt consoleAct
     putMVar var r
   pure $ do
     val <- takeMVar var
@@ -60,16 +36,15 @@ interpretEffectFAsync rt (L.RunConsole consoleAct next) = do
 --     putMVar var r
 --   pure (next, R.Delayed var)
 
--- runEffectAsync :: R.ZIORuntime -> L.Effect a -> IO (Delayed a)
-runEffectAsync rt (Pure v) = R.Delayed <$> newMVar v
+-- runEffectAsync :: R.ZIORuntime -> L.Effect a -> IO (R.Async a)
+runEffectAsync rt (Pure val) = pure $ R.Ready val
 runEffectAsync rt (Free f) = do
   act <- interpretEffectFAsync rt f
   var <- newEmptyMVar
   void $ forkIO $ do
-    R.Delayed var' <- act
-    val <- takeMVar var'
-    putMVar var val
-  pure $ R.Delayed var
+    asyncVar <- act
+    R.relayAsyncVar asyncVar var
+  pure $ R.Async var
 
 
   -- (next, R.Delayed var') <- interpretEffectFAsync rt f

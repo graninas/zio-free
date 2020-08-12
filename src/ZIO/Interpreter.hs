@@ -14,9 +14,8 @@ import qualified ZIO.Effects.Effect.Interpreter as R
 interpretZIOFAsync rt (L.RunEffect eff next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
-    R.Delayed var' <- R.runEffectAsync rt eff
-    val <- takeMVar var'
-    putMVar var val
+    asyncVar <- R.runEffectAsync rt eff
+    R.relayAsyncVar asyncVar var
   pure $ do
     val <- takeMVar var
     runZIOAsync rt $ next val
@@ -25,15 +24,14 @@ interpretZIOFAsync rt (L.RunSync eff next) = error "interpretZIOFAsync RunSync n
 interpretZIOFAsync rt (L.RunAsync eff next) = error "interpretZIOFAsync RunAsync not implemented."
 
 -- runZIOAsync :: R.ZIORuntime -> L.ZIO a -> IO (R.Delayed a)
-runZIOAsync rt (Pure v) = R.Delayed <$> newMVar v
+runZIOAsync rt (Pure val) = pure $ R.Ready val
 runZIOAsync rt (Free f) = do
   act <- interpretZIOFAsync rt f
   var <- newEmptyMVar
   void $ forkIO $ do
-    R.Delayed var' <- act
-    val <- takeMVar var'
-    putMVar var val
-  pure $ R.Delayed var
+    asyncVar <- act
+    R.relayAsyncVar asyncVar var
+  pure $ R.Async var
 
 
 
@@ -48,9 +46,9 @@ interpretZIOFSync rt (L.RunSync eff next) = do
   pure $ next r
 
 interpretZIOFSync rt (L.RunAsync eff next) = do
-  R.Delayed var <- runZIOAsync rt eff
-  r <- takeMVar var
-  pure $ next r
+  asyncVar <- runZIOAsync rt eff
+  val <- R.awaitAsyncVar asyncVar
+  pure $ next val
 
 runZIOSync :: R.ZIORuntime -> L.ZIO a -> IO a
 runZIOSync rt = foldFree (interpretZIOFSync rt)

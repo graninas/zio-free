@@ -4,7 +4,9 @@ import           ZIO.Prelude
 
 import qualified Data.Map                        as Map
 
-newtype Delayed a = Delayed (MVar a)
+data Async a
+  = Async (MVar a)
+  | Ready a
 
 
 data ZIORuntime = ZIORuntime
@@ -20,3 +22,16 @@ clearZIORuntime _ = pure ()
 withZIORuntime :: (ZIORuntime -> IO a) -> IO a
 withZIORuntime zioRtAct =
   bracket createZIORuntime clearZIORuntime zioRtAct
+
+
+relayAsyncVar :: Async a -> MVar a -> IO ()
+relayAsyncVar inputAsyncVar outputVar =
+  case inputAsyncVar of
+    Ready val -> putMVar outputVar val
+    Async var -> do
+      val <- takeMVar var
+      putMVar outputVar val
+
+awaitAsyncVar :: Async a -> IO a
+awaitAsyncVar (Ready val) = pure val
+awaitAsyncVar (Async var) = takeMVar var
