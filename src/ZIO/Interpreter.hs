@@ -19,8 +19,8 @@ interpretZIOF rt (L.RunSynchronously eff next) = do
     T.Async var -> next <$> takeMVar var
     T.Ready val -> pure $ next val
 
-interpretZIOF rt (L.RunAsync eff next) = do
-  asyncVar <- R.runEffectAsync rt eff
+interpretZIOF rt (L.RunAsyncEffect eff next) = do
+  asyncVar <- R.runAsyncEffect rt eff
   case asyncVar of
     T.Async var -> next <$> takeMVar var
     T.Ready val -> pure $ next val
