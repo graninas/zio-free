@@ -11,29 +11,27 @@ import ZIO.Effects.IO.Language as L
 import ZIO.Effects.Console.Language as L
 import ZIO.Effects.Effect.Language as L
 
-fibonacci :: Integer -> Integer
-fibonacci n = take n fibs
+fibonacci :: Int -> Int
+fibonacci n = head $ drop n fibs
   where
     fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
 
-factorial :: Integer -> Integer
+factorial :: Int -> Int
 factorial n = product [1..n]
 
-app :: ZIO (Integer, Integer)
+app :: ZIO (Int, Int)
 app = do
-  line <- runEffect $ runIO P.getLine
-
   fib <- runEffect $ runIO $ do
-    P.putStrLn "Action 1 started."
+    P.putStrLn "Fib started"
     threadDelay $ 1000 * 1000
     let fib = fibonacci 20
-    P.putStrLn "Action 1 finished."
+    P.putStrLn $ "Fib: " <> show fib
     pure fib
 
   fact <- runEffect $ runIO $ do
-    P.putStrLn "Action 2 started."
+    P.putStrLn "Fact started"
     let fact = factorial 20
-    P.putStrLn "Action 2 finished."
+    P.putStrLn $ "Fact: " <> show fact
     pure fact
 
   pure (fib, fact)
@@ -42,8 +40,7 @@ app = do
 main :: IO ()
 main = do
   rt <- R.createZIORuntime
-  v1 <- R.runZIOSync rt app
-  asyncVar <- R.runZIOAsync rt app
-  (fib, fact) <- R.awaitAsyncVar asyncVar
-  P.putStrLn $ "Fib: " <> show fib
-  P.putStrLn $ "Fact: " <> show fact
+  (fib, fact) <- R.runZIOSync rt app
+  -- asyncVar <- R.runZIOAsync rt app
+  -- (fib, fact) <- R.awaitAsyncVar asyncVar
+  P.putStrLn $ "Fib + Fact: " <> show (fib + fact)
