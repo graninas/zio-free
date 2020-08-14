@@ -36,19 +36,26 @@ runZIOAsync rt (Free f) = do
 
 
 
-interpretZIOFSync :: R.ZIORuntime -> L.ZIOF a -> IO a
-interpretZIOFSync rt (L.RunEffect eff next) = do
+interpretZIOF :: R.ZIORuntime -> L.ZIOF a -> IO a
+interpretZIOF rt (L.RunEffect eff next) = do
   r <- R.runEffect rt eff
   pure $ next r
 
-interpretZIOFSync rt (L.RunSync eff next) = do
+interpretZIOF rt (L.RunSync eff next) = do
   r <- runZIOSync rt eff
   pure $ next r
 
-interpretZIOFSync rt (L.RunAsync eff next) = do
+interpretZIOF rt (L.RunAsync eff next) = do
   asyncVar <- runZIOAsync rt eff
   val <- R.awaitAsyncVar asyncVar
   pure $ next val
 
 runZIOSync :: R.ZIORuntime -> L.ZIO a -> IO a
-runZIOSync rt = foldFree (interpretZIOFSync rt)
+runZIOSync rt = foldFree (interpretZIOF rt)
+
+
+runZIO :: R.ZIORuntime -> L.ZIO a -> IO a
+runZIO rt (Pure val) = pure val
+runZIO rt (Free act) = do
+  next <- interpretZIOF rt act
+  runZIO rt next

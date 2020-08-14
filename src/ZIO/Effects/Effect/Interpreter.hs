@@ -10,7 +10,6 @@ import qualified ZIO.Effects.IO.Interpreter as R
 import qualified ZIO.Runtime as R
 
 
--- interpretEffectFAsync :: R.ZIORuntime -> L.EffectF a -> IO (L.Effect a)
 interpretEffectFAsync rt (L.RunIOEff ioEff next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
@@ -29,14 +28,7 @@ interpretEffectFAsync rt (L.RunConsole consoleAct next) = do
     val <- takeMVar var
     runEffectAsync rt $ next val
 
--- interpretEffectFAsync rt (L.RunConsole consoleAct next) = do
---   var <- newEmptyMVar
---   void $ forkIO $ do
---     r <- runSyncConsole rt consoleAct
---     putMVar var r
---   pure (next, R.Delayed var)
 
--- runEffectAsync :: R.ZIORuntime -> L.Effect a -> IO (R.Async a)
 runEffectAsync rt (Pure val) = pure $ R.Ready val
 runEffectAsync rt (Free f) = do
   act <- interpretEffectFAsync rt f
@@ -46,14 +38,6 @@ runEffectAsync rt (Free f) = do
     R.relayAsyncVar asyncVar var
   pure $ R.Async var
 
-
-  -- (next, R.Delayed var') <- interpretEffectFAsync rt f
-  -- var <- newEmptyMVar
-  -- void $ forkIO $ do
-  --   val <- takeMVar var'
-  --   r <- runEffectAsync rt $ next val
-  --   putMVar var r
-  -- pure $ R.Delayed var
 
 
 interpretEffectF :: R.ZIORuntime -> L.EffectF a -> IO a
