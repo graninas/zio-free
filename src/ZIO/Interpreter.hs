@@ -10,7 +10,7 @@ import qualified ZIO.Language as L
 import qualified ZIO.Runtime  as R
 import qualified ZIO.Effects.Effect.Interpreter as R
 
--- interpretZIOFAsync :: R.ZIORuntime -> L.ZIOF a -> IO a
+interpretZIOFAsync :: R.ZIORuntime -> L.ZIOF (L.ZIO a) -> IO (IO (R.Async a))
 interpretZIOFAsync rt (L.RunEffect eff next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
@@ -23,7 +23,7 @@ interpretZIOFAsync rt (L.RunEffect eff next) = do
 interpretZIOFAsync rt (L.RunSync eff next) = error "interpretZIOFAsync RunSync not implemented."
 interpretZIOFAsync rt (L.RunAsync eff next) = error "interpretZIOFAsync RunAsync not implemented."
 
--- runZIOAsync :: R.ZIORuntime -> L.ZIO a -> IO (R.Delayed a)
+runZIOAsync :: R.ZIORuntime -> L.ZIO a -> IO (R.Async a)
 runZIOAsync rt (Pure val) = pure $ R.Ready val
 runZIOAsync rt (Free f) = do
   act <- interpretZIOFAsync rt f

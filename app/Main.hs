@@ -20,7 +20,7 @@ factorial n = product [1..n]
 fibApp :: ZIO Int
 fibApp = runIO $ do
   P.putStrLn "Fib started"
-  threadDelay $ 1000 * 1000
+  threadDelay $ 1000 * 1000 * 2
   let fib = fibonacci 20
   P.putStrLn $ "Fib: " <> show fib
   pure fib
@@ -41,7 +41,10 @@ app = do
 
 main :: IO ()
 main = R.withZIORuntime $ \rt -> do
-  (fib, fact) <- R.runZIO rt app
+  -- (fib, fact) <- R.runZIO rt app
+  asyncVar <- R.runZIOAsync rt app
+  (fib, fact) <- R.awaitAsyncVar asyncVar
+
   print "You got:"
   print (fib, fact)
 
