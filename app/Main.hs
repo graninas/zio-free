@@ -42,8 +42,8 @@ app = do
 main :: IO ()
 main = R.withZIORuntime $ \rt -> do
   -- (fib, fact) <- R.runZIO rt app
-  asyncVar <- R.runZIOAsync rt app
-  (fib, fact) <- R.awaitAsyncVar asyncVar
+  var <- R.runZIOAsync rt app
+  (fib, fact) <- takeMVar var
 
   print "You got:"
   print (fib, fact)

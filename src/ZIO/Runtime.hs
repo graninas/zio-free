@@ -35,3 +35,9 @@ relayAsyncVar inputAsyncVar outputVar =
 awaitAsyncVar :: Async a -> IO a
 awaitAsyncVar (Ready val) = pure val
 awaitAsyncVar (Async var) = takeMVar var
+
+
+relayMVar :: MVar a -> MVar a -> IO ()
+relayMVar inputVar outputVar = do
+  val <- takeMVar inputVar
+  putMVar outputVar val

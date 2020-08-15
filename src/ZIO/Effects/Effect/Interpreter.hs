@@ -29,14 +29,14 @@ interpretEffectFAsync rt (L.RunConsole consoleAct next) = do
     runEffectAsync rt $ next val
 
 
-runEffectAsync rt (Pure val) = pure $ R.Ready val
+runEffectAsync rt (Pure val) = newMVar val
 runEffectAsync rt (Free f) = do
   act <- interpretEffectFAsync rt f
   var <- newEmptyMVar
   void $ forkIO $ do
-    asyncVar <- act
-    R.relayAsyncVar asyncVar var
-  pure $ R.Async var
+    var' <- act
+    R.relayMVar var' var
+  pure var
 
 
 
