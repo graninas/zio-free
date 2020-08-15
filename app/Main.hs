@@ -39,23 +39,24 @@ app = do
   pure (fib, fact)
 
 
--- main :: IO ()
--- main = do
---   rt <- R.createZIORuntime
---   (fib, fact) <- R.runZIOSync rt app
---   -- asyncVar <- R.runZIOAsync rt app
---   -- (fib, fact) <- R.awaitAsyncVar asyncVar
---   P.putStrLn $ "Fib + Fact: " <> show (fib + fact)
-
-
-
 main :: IO ()
-main = R.withZIORuntime $
-  \rt -> R.runZIO rt myApp
+main = R.withZIORuntime $ \rt -> do
+  (fib, fact) <- R.runZIO rt app
+  print "You got:"
+  print (fib, fact)
 
-myApp :: ZIO ()
-myApp = do
-  L.putStrLn "Hello! What is your name?"
-  name <- L.getStrLn
-  L.putStrLn ("Hello, " <> name <> ", welcome to ZIO!")
-  pure ()
+  -- asyncVar <- R.runZIOAsync rt app
+  -- (fib, fact) <- R.awaitAsyncVar asyncVar
+
+
+--
+-- main :: IO ()
+-- main = R.withZIORuntime $
+--   \rt -> R.runZIO rt myApp
+--
+-- myApp :: ZIO ()
+-- myApp = do
+--   L.putStrLn "Hello! What is your name?"
+--   name <- L.getStrLn
+--   L.putStrLn ("Hello, " <> name <> ", welcome to ZIO!")
+--   pure ()
