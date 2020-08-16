@@ -6,8 +6,8 @@ import           ZIO.Prelude hiding (putStrLn, getLine)
 
 import qualified ZIO.Runtime as R
 import qualified ZIO.Interpreter as R
-import ZIO.Language as L
-import ZIO.Effects.IO.Language as L
+import qualified ZIO.Language as L
+import qualified ZIO.Effects.Effect.Language as L
 
 fibonacci :: Int -> Int
 fibonacci n = head $ drop n fibs
@@ -17,49 +17,34 @@ fibonacci n = head $ drop n fibs
 factorial :: Int -> Int
 factorial n = product [1..n]
 
-fibApp :: ZIO Int
-fibApp = runIO $ do
+fibApp :: IO Int
+fibApp = do
   P.putStrLn "Fib started"
   threadDelay $ 1000 * 1000 * 2
   let fib = fibonacci 20
   P.putStrLn $ "Fib: " <> show fib
   pure fib
 
-factApp :: ZIO Int
-factApp = runIO $ do
+factApp :: IO Int
+factApp = do
   P.putStrLn "Fact started"
   let fact = factorial 20
   P.putStrLn $ "Fact: " <> show fact
   pure fact
 
-app :: ZIO (Int, Int)
-app = do
-  fib  <- fibApp
-  fact <- factApp
+asyncApp :: L.AsyncEffect (Int, Int)
+asyncApp = do
+  aFib  <- L.runIO fibApp
+  aFact <- L.runIO factApp
+  fib   <- L.await aFib
+  fact  <- L.await aFact
   pure (fib, fact)
 
+app :: L.ZIO (Int, Int)
+app = L.runAsyncEffect asyncApp
 
 main :: IO ()
 main = R.withZIORuntime $ \rt -> do
-  -- (fib, fact) <- R.runZIO rt app
-  var <- R.runZIOAsync rt app
-  (fib, fact) <- takeMVar var
-
+  (fib, fact) <- R.runZIO rt app
   print "You got:"
   print (fib, fact)
-
-  -- asyncVar <- R.runZIOAsync rt app
-  -- (fib, fact) <- R.awaitAsyncVar asyncVar
-
-
---
--- main :: IO ()
--- main = R.withZIORuntime $
---   \rt -> R.runZIO rt myApp
---
--- myApp :: ZIO ()
--- myApp = do
---   L.putStrLn "Hello! What is your name?"
---   name <- L.getStrLn
---   L.putStrLn ("Hello, " <> name <> ", welcome to ZIO!")
---   pure ()

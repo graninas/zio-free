@@ -2,11 +2,7 @@ module ZIO.Runtime where
 
 import           ZIO.Prelude
 
-import qualified Data.Map                        as Map
-
-data Async a
-  = Async (MVar a)
-  | Ready a
+import qualified ZIO.Types as T
 
 
 data ZIORuntime = ZIORuntime
@@ -24,17 +20,17 @@ withZIORuntime zioRtAct =
   bracket createZIORuntime clearZIORuntime zioRtAct
 
 
-relayAsyncVar :: Async a -> MVar a -> IO ()
+relayAsyncVar :: T.Async a -> MVar a -> IO ()
 relayAsyncVar inputAsyncVar outputVar =
   case inputAsyncVar of
-    Ready val -> putMVar outputVar val
-    Async var -> do
+    T.Ready val -> putMVar outputVar val
+    T.Async var -> do
       val <- takeMVar var
       putMVar outputVar val
 
-awaitAsyncVar :: Async a -> IO a
-awaitAsyncVar (Ready val) = pure val
-awaitAsyncVar (Async var) = takeMVar var
+awaitAsyncVar :: T.Async a -> IO a
+awaitAsyncVar (T.Ready val) = pure val
+awaitAsyncVar (T.Async var) = takeMVar var
 
 
 relayMVar :: MVar a -> MVar a -> IO ()
