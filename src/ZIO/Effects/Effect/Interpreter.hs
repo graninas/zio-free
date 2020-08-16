@@ -99,8 +99,8 @@ interpretEffectF rt (L.RunIOEff ioEff next) =
 interpretEffectF rt (L.Async asyncEff next) =
   next <$> runAsyncEffect rt asyncEff
 
--- interpretEffectF rt (L.Await (T.Async var) next) =
---   next <$> takeMVar var
+interpretEffectF rt (L.Await (T.Async var) next) =
+  next <$> takeMVar var
 
 interpretEffectF rt (L.Await (T.Ready val) next) =
   pure $ next val
