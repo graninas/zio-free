@@ -4,8 +4,6 @@ import           ZIO.Prelude
 
 import qualified Data.Map                        as Map
 
-newtype Delayed a = Delayed (MVar a)
-
 
 data ZIORuntime = ZIORuntime
     { _dummy :: Int
