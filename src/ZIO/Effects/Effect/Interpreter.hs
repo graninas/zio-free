@@ -46,13 +46,7 @@ interpretAsyncEffectF rt (L.Await (T.Ready val) next) =
 
 runAsyncEffect :: R.ZIORuntime -> L.AsyncEffect a -> IO (T.Async a)
 runAsyncEffect rt (Pure v) = pure $ T.Ready v
-runAsyncEffect rt (Free f) = do
-  act <- interpretAsyncEffectF rt f
-  var <- newEmptyMVar
-  void $ forkIO $ do
-    asyncVar <- act
-    R.relayAsyncVar asyncVar var
-  pure $ T.Async var
+runAsyncEffect rt (Free f) = join $ interpretAsyncEffectF rt f
 
 -----------------------------------------
 
