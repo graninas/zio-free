@@ -44,17 +44,7 @@ interpretEffectFAsync rt (L.Await (T.Ready val) next) =
 
 runAsyncEffect :: R.ZIORuntime -> L.AsyncEffect a -> IO (T.Async a)
 runAsyncEffect rt (Pure v) = pure $ T.Ready v
-runAsyncEffect rt (Free f) = do
-  act <- interpretEffectFAsync rt f
-  var <- newEmptyMVar
-  void $ forkIO $ do
-    asyncVar <- act
-    case asyncVar of
-      T.Async var' -> do
-        val' <- takeMVar var'
-        putMVar var val'
-      T.Ready val' -> putMVar var val'
-  pure $ T.Async var
+runAsyncEffect rt (Free f) = join $ interpretEffectFAsync rt f
 
 -----------------------------------------
 
@@ -83,9 +73,7 @@ interpretEffectFAsyncSynchronously rt (L.Await (T.Ready val) next) =
 
 runAsyncEffectSynchronously :: R.ZIORuntime -> L.AsyncEffect a -> IO (T.Async a)
 runAsyncEffectSynchronously rt (Pure v) = pure $ T.Ready v
-runAsyncEffectSynchronously rt (Free f) = do
-  act <- interpretEffectFAsyncSynchronously rt f
-  act
+runAsyncEffectSynchronously rt (Free f) = join $ interpretEffectFAsyncSynchronously rt f
 
 -------------------------------------------
 
