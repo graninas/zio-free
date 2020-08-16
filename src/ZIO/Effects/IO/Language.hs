@@ -8,7 +8,7 @@ import           ZIO.Prelude
 
 
 data IOF next where
-  RunIO :: IO a -> (a  -> next) -> IOF next
+  RunIO :: IO a -> (a -> next) -> IOF next
 
 instance Functor IOF where
   fmap f (RunIO ioAct next) = RunIO ioAct (f . next)
