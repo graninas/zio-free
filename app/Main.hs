@@ -12,6 +12,25 @@ import ZIO.Effects.IO.Language as L
 import ZIO.Effects.Console.Language as L
 import ZIO.Effects.Effect.Language as L
 
+wgetGist :: String -> L.AsyncEffect (T.Async String)
+wgetGist gist = runIO $ do
+  Proc.readCreateProcess (Proc.shell ("wget https://gist.github.com/graninas" <> gist)) ""
+  P.readFile gist
+
+wgetGist' :: String -> L.AsyncEffect (T.Async (Either SomeException String))
+wgetGist' gist = runIO $ do
+  Proc.readCreateProcess (Proc.shell ("wget https://gist.github.com/graninas" <> gist)) ""
+  try $ P.readFile gist
+
+
+appLogic' :: L.AsyncEffect ()
+appLogic' = do
+  aStrGist <- wgetGist "c7e0a603f3a22c7e85daa4599bf92525"
+  -- let aIntGist = fmap length aStrGist
+  gist <- await aStrGist
+  void $ runIO $ P.putStrLn $ show $ length gist
+
+
 
 appLogic :: L.AsyncEffect String
 appLogic = do
@@ -41,25 +60,12 @@ appLogic = do
   line :: String <- await line'
 
   result' <- async $ do
-    runIO $ P.putStrLn "Awaiting eRes1'..."
-    eRes1 <- await eRes1'
-
-    runIO $ P.putStrLn "Some IO delay here..."
-    runIO $ threadDelay $ 1000 * 1000 * 3
-    runIO $ P.putStrLn "IO delay finished."
-
-    runIO $ P.putStrLn "Awaiting eRes2'..."
+    _ <- await eRes1'
     eRes2 <- await eRes2'
 
-    resLine1' :: T.Async String <- runIO $ case eRes1 of
-        Left err1 -> pure $ show err1
-        Right (content1 :: String) -> pure content1
+    let resLine1' = (either show id) <$> eRes1'
+    let resLine2 = either show id eRes2
 
-    let resLine2 = case eRes2 of
-          Left err2 -> show err2
-          Right (content2 :: String) -> content2
-
-    runIO $ P.putStrLn "Awaiting resLine1'..."
     resLine1 <- await resLine1'
 
     pure (line <> " " <> resLine1 <> " " <> resLine2)
@@ -72,15 +78,14 @@ appLogic = do
   pure result
 
 
-app :: ZIO String
+app :: ZIO ()
 app = do
   v1 <- runAsyncEffect appLogic
   -- v1 <- runSynchronously appLogic
-  pure v1
+  pure ()
 
 main :: IO ()
 main = do
   rt <- R.createZIORuntime
-  v1 <- R.runZIO rt app
-
-  void $ P.getLine
+  R.runZIO rt app
+  -- R.runZIO rt $ runAsyncEffect appLogic'
