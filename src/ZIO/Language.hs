@@ -50,6 +50,12 @@ runSafely act = liftF $ RunSafely act id
 runSafely' :: ZIO a -> ZIO (Either SomeException a)
 runSafely' = runSafely
 
+zioTry :: Exception e => ZIO a -> ZIO (Either e a)
+zioTry = runSafely
+
+zioThrow :: forall a e. Exception e => e -> ZIO a
+zioThrow = throwException
+
 
 instance L.Awaitable ZIO where
   await var = runEffect $ L.await var
