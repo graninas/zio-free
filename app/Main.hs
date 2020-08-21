@@ -45,7 +45,7 @@ badRaceApp = do
     Left intVal  -> runIO $ P.putStrLn $ "Int value got: " <> show intVal
     Right strVal -> runIO $ P.putStrLn $ "Int value got: " <> strVal
 
--- Example 2. "Subtle Dummy exception"
+-- Example 2. "Dummy exception printer"
 
 data Dummy = Dummy
   deriving (Show, Typeable)
