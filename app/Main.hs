@@ -14,40 +14,21 @@ import ZIO.Effects.IO.Language as L
 import ZIO.Effects.Console.Language as L
 import ZIO.Effects.Effect.Language as L
 
--- Proofs by construction
+-- Safety of Free monads: Proof by construction
 
--- Example 1. "BadRace"
+-- Reference article:
+-- https://www.fpcomplete.com/blog/2018/04/async-exception-handling-haskell/
 
-badRace :: ZIO a -> ZIO b -> ZIO (Either a b)
-badRace zioa ziob = do
-  -- TODO: state, processes
-  -- mvar <- newEmptyMVar
-  -- tida <- forkIO $ zioa >>= putMVar mvar . Left
-  -- tidb <- forkIO $ ziob >>= putMVar mvar . Right
-  -- res <- takeMVar mvar
-  -- killThread tida
-  -- killThread tidb
-  -- return res
-  error "Not implemented yet."
+-- Some thoughts on reading the article.
+-- 1. External libraries should not know about my threads.
+-- The only thread they can be aware about is a thread they are working with.
+-- This means 2 things:
+--  a) they should not get the id of the main thread.
+--  b) they should not ask you to pass any ThreadIDs (and should not use hacks to obtain it and bypass this rule)
+-- This prevents those libraries from throwing async exceptions into your threads.
+-- (But this doesn't prevent the Haskell runtime from throwing async exceptions when the code of a library does something)
 
-zioInt :: ZIO Int
-zioInt = do
-  -- some code here
-  pure 10
-
-zioStr :: ZIO String
-zioStr = do
-  -- some code here
-  pure "ABC"
-
-badRaceApp :: ZIO ()
-badRaceApp = do
-  eRes <- badRace zioInt zioStr
-  case eRes of
-    Left intVal  -> runIO $ P.putStrLn $ "Int value got: " <> show intVal
-    Right strVal -> runIO $ P.putStrLn $ "Int value got: " <> strVal
-
--- Example 2. "Dummy exception printer"
+-- Example 1. "Dummy exception printer"
 
 data Dummy = Dummy
   deriving (Show, Typeable)
@@ -91,6 +72,59 @@ safeDummyPrinterApp = do
     Left (err :: SomeException) -> L.runIO $ P.putStrLn $ "Exception thrown: " <> show err
     Right () -> pure ()
 
+
+-- Example 2. The timeout function and the need of async exceptions
+
+-- Proposition 1:
+-- > Since checkTimeout runs in IO, we can't use it in pure code. This means that long-run CPU computations cannot be interrupted.
+-- (I.e., "we can't use pure code for dealing with exceptions")
+
+-- Proposition 2:
+-- > We need to remember to call checkTimeout in all relevant places. If we don't, our timeout won't work properly.
+-- (I.e., it's inavoidable in the client code to use checkTimeout)
+
+-- Proposition 3:
+-- > BONUS The code above has a potential deadlock in it due to mishandling of synchronous exceptions. Try and find it!
+-- I have no idea so far
+
+
+
+
+
+
+
+
+
+-- Example 3. "BadRace"
+
+badRace :: ZIO a -> ZIO b -> ZIO (Either a b)
+badRace zioa ziob = do
+  -- TODO: state, processes
+  -- mvar <- newEmptyMVar
+  -- tida <- forkIO $ zioa >>= putMVar mvar . Left
+  -- tidb <- forkIO $ ziob >>= putMVar mvar . Right
+  -- res <- takeMVar mvar
+  -- killThread tida
+  -- killThread tidb
+  -- return res
+  error "Not implemented yet."
+
+zioInt :: ZIO Int
+zioInt = do
+  -- some code here
+  pure 10
+
+zioStr :: ZIO String
+zioStr = do
+  -- some code here
+  pure "ABC"
+
+badRaceApp :: ZIO ()
+badRaceApp = do
+  eRes <- badRace zioInt zioStr
+  case eRes of
+    Left intVal  -> runIO $ P.putStrLn $ "Int value got: " <> show intVal
+    Right strVal -> runIO $ P.putStrLn $ "Int value got: " <> strVal
 
 
 
