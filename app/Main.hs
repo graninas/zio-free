@@ -2,7 +2,9 @@ module Main where
 
 import qualified Prelude as P
 import qualified System.Process as Proc
-import           ZIO.Prelude
+import           ZIO.Prelude hiding (try)
+import Control.Exception
+import Data.Typeable
 
 import qualified ZIO.Runtime as R
 import qualified ZIO.Interpreter as R
@@ -12,80 +14,80 @@ import ZIO.Effects.IO.Language as L
 import ZIO.Effects.Console.Language as L
 import ZIO.Effects.Effect.Language as L
 
-wgetGist :: String -> L.AsyncEffect (T.Async String)
-wgetGist gist = runIO $ do
-  Proc.readCreateProcess (Proc.shell ("wget https://gist.github.com/graninas" <> gist)) ""
-  P.readFile gist
+-- Example 1. "BadRace"
 
-wgetGist' :: String -> L.AsyncEffect (T.Async (Either SomeException String))
-wgetGist' gist = runIO $ do
-  Proc.readCreateProcess (Proc.shell ("wget https://gist.github.com/graninas" <> gist)) ""
-  try $ P.readFile gist
+badRace :: ZIO a -> ZIO b -> ZIO (Either a b)
+badRace zioa ziob = do
+  -- TODO: state, processes
+  -- mvar <- newEmptyMVar
+  -- tida <- forkIO $ zioa >>= putMVar mvar . Left
+  -- tidb <- forkIO $ ziob >>= putMVar mvar . Right
+  -- res <- takeMVar mvar
+  -- killThread tida
+  -- killThread tidb
+  -- return res
+  error "Not implemented yet."
 
+zioInt :: ZIO Int
+zioInt = do
+  -- some code here
+  pure 10
 
-appLogic' :: L.AsyncEffect ()
-appLogic' = do
-  aStrGist <- wgetGist "c7e0a603f3a22c7e85daa4599bf92525"
-  -- let aIntGist = fmap length aStrGist
-  gist <- await aStrGist
-  void $ runIO $ P.putStrLn $ show $ length gist
+zioStr :: ZIO String
+zioStr = do
+  -- some code here
+  pure "ABC"
 
+badRaceApp :: ZIO ()
+badRaceApp = do
+  eRes <- badRace zioInt zioStr
+  case eRes of
+    Left intVal  -> runIO $ P.putStrLn $ "Int value got: " <> show intVal
+    Right strVal -> runIO $ P.putStrLn $ "Int value got: " <> strVal
 
+-- Example 2. "Subtle Dummy exception"
 
-appLogic :: L.AsyncEffect String
-appLogic = do
-  line' :: T.Async String <- runIO $ pure "App methods finished."
+data Dummy = Dummy
+  deriving (Show, Typeable)
+instance Exception Dummy
 
-  eRes1' :: T.Async (Either SomeException String) <- runIO $ do
-    threadDelay $ 1000 * 1000 * 2
-    P.putStrLn "Downloading 1..."
-    _ :: Either SomeException String <- try $ Proc.readCreateProcess (Proc.shell "wget https://gist.github.com/graninas/01565065c18c01e88a5ebcbfbb96e397") ""
-    P.putStrLn "Finished downloading 1."
-    threadDelay $ 1000 * 1000
-    content <- try $ P.readFile "01565065c18c01e88a5ebcbfbb96e397"
-    P.putStrLn "File 1 read."
-    pure content
+zioPrinter :: ZIO (Either Dummy ()) -> ZIO ()
+zioPrinter x = x >>= L.runIO . print
 
-  eRes2' :: T.Async (Either SomeException String) <- runIO $ do
-    threadDelay $ 1000 * 500 * 2
-    P.putStrLn "Downloading 2..."
-    _ :: Either SomeException String <- try $ Proc.readCreateProcess (Proc.shell "wget https://gist.github.com/graninas/c7e0a603f3a22c7e85daa4599bf92525") ""
-    P.putStrLn "Finished downloading 2."
-    threadDelay $ 1000 * 500
-    content <- try $ P.readFile "c7e0a603f3a22c7e85daa4599bf92525"
-    P.putStrLn "File 2 read."
-    pure content
+dummyPrinterApp :: ZIO ()
+dummyPrinterApp = do
+  L.runIO $ P.putStrLn "runIO, native throw functions, zio catch"
 
-  runIO $ P.putStrLn "Awaiting line'..."
-  line :: String <- await line'
+  zioPrinter $ L.runSafely $ L.runIO $ throwIO Dummy             -- prints "Left Dummy"
+  zioPrinter $ L.runSafely $ L.runIO $ throw Dummy               -- prints "Left Dummy"
+  zioPrinter $ L.runSafely $ L.runIO $ evaluate $ throw Dummy    -- prints "Left Dummy"
+  zioPrinter $ L.runSafely $ L.runIO $ return $! throw Dummy     -- prints "Left Dummy"
+  zioPrinter $ L.runSafely $ L.runIO $ return $ throw Dummy      -- prints "Left Dummy"
 
-  result' <- async $ do
-    _ <- await eRes1'
-    eRes2 <- await eRes2'
+  L.runIO $ P.putStrLn "runIO, zio throw, zio catch"
 
-    let resLine1' = (either show id) <$> eRes1'
-    let resLine2 = either show id eRes2
+  zioPrinter $ L.runSafely $ L.throwException Dummy
+  -- zioPrinter $ L.runSafely $ try $ throw Dummy                  -- can't be compiled
+  -- zioPrinter $ L.runSafely $ evaluate $ L.throwException Dummy  -- can't be compiled
+  -- zioPrinter $ L.runSafely $ return $! L.throwException Dummy   -- can't be compiled
+  -- zioPrinter $ L.runSafely $ return $ L.throwException Dummy    -- can't be compiled
 
-    resLine1 <- await resLine1'
+  L.runIO $ P.putStrLn "runIO, native throw functions, native catch"
 
-    pure (line <> " " <> resLine1 <> " " <> resLine2)
+  zioPrinter $ L.runIO $ try $ throwIO Dummy             -- prints "Left Dummy"
+  zioPrinter $ L.runIO $ try $ throw Dummy               -- prints "Left Dummy"
+  zioPrinter $ L.runIO $ try $ evaluate $ throw Dummy    -- prints "Left Dummy"
+  zioPrinter $ L.runIO $ try $ return $! throw Dummy     -- prints "Left Dummy"
+  zioPrinter $ L.runIO $ try $ return $ throw Dummy      -- throws an exception. It will leak outside.
 
-  runIO $ P.putStrLn "Some async event."
-
-  result <- await result'
-
-  runIO $ P.putStrLn "All data got."
-  pure result
-
-
-app :: ZIO ()
-app = do
-  v1 <- runAsyncEffect appLogic
-  -- v1 <- runSynchronously appLogic
-  pure ()
+safeDummyPrinterApp :: ZIO ()
+safeDummyPrinterApp = do
+  eRes <- L.runSafely dummyPrinterApp
+  case eRes of
+    Left (err :: SomeException) -> L.runIO $ P.putStrLn $ "Exception thrown: " <> show err
+    Right () -> pure ()
 
 main :: IO ()
 main = do
   rt <- R.createZIORuntime
-  R.runZIO rt app
-  -- R.runZIO rt $ runAsyncEffect appLogic'
+  R.runZIO rt safeDummyPrinterApp

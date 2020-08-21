@@ -15,9 +15,11 @@ import qualified ZIO.Types as T
 
 data EffectF m next where
   RunConsole :: L.Console a -> (m a -> next) -> EffectF m next
-  RunIOEff :: L.IOEff a -> (m a -> next) -> EffectF m next
+  RunIOEff   :: L.IOEff a   -> (m a -> next) -> EffectF m next
+
   Async :: AsyncEffect a -> (T.Async a -> next) -> EffectF m next
   Await :: T.Async a -> (a -> next) -> EffectF m next
+
 
 type Effect = Free (EffectF Identity)
 type AsyncEffect = Free (EffectF T.Async)
@@ -36,8 +38,7 @@ class Asynchronous m where
 
 class Awaitable m => Effect' m mode | m -> mode where
   runConsole :: L.Console a -> m (mode a)
-  runIO :: IO a -> m (mode a)
-
+  -- runIO :: IO a -> m (mode a)
 
 instance Awaitable Effect where
   await var = liftF $ Await var id
@@ -48,11 +49,17 @@ instance Awaitable AsyncEffect where
 instance Asynchronous AsyncEffect where
   async asyncEff = liftF $ Async asyncEff id
 
+instance L.HasIO Effect where
+  runIO ioAct = runIdentity <$> (liftF $ RunIOEff (L.runIO' ioAct) id)
 
-instance Effect' Effect Identity where
-  runConsole consoleAct = liftF $ RunConsole consoleAct id
-  runIO ioEff = liftF $ RunIOEff (L.runIO' ioEff) id
+  -- TODO
+-- instance L.HasIO AsyncEffect where
 
-instance Effect' AsyncEffect T.Async where
-  runConsole consoleAct = liftF $ RunConsole consoleAct id
-  runIO ioEff = liftF $ RunIOEff (L.runIO' ioEff) id
+
+-- instance Effect' Effect Identity where
+--   runConsole consoleAct = liftF $ RunConsole consoleAct id
+--   runIO ioAct = liftF $ RunIOEff (L.runIO' ioAct) id
+--
+-- instance Effect' AsyncEffect T.Async where
+--   runConsole consoleAct = liftF $ RunConsole consoleAct id
+--   runIO ioAct = liftF $ RunIOEff (L.runIO' ioAct) id

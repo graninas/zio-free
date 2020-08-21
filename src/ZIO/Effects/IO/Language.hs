@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 module ZIO.Effects.IO.Language where
 
@@ -15,5 +16,12 @@ instance Functor IOF where
 
 type IOEff = Free IOF
 
+
+class HasIO  m where
+  runIO :: IO a -> m a
+
 runIO' :: IO a -> IOEff a
 runIO' ioAct = liftF $ RunIO ioAct id
+
+instance HasIO IOEff where
+  runIO ioAct = runIO' ioAct
