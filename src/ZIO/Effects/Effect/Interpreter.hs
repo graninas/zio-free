@@ -22,22 +22,22 @@ interpretEffectFAsync rt (L.RunIOEff ioEff next) = do
   void $ forkIO $ do
     r <- runSyncIO rt ioEff
     putMVar var r
-  pure $ runAsyncEffect rt $ next $ T.Async var
+  pure $ runAsyncEffect rt $ next $ T.Async id var
 
 interpretEffectFAsync rt (L.RunConsole consoleAct next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
     r <- runSyncConsole rt consoleAct
     putMVar var r
-  pure $ runAsyncEffect rt $ next $ T.Async var
+  pure $ runAsyncEffect rt $ next $ T.Async id var
 
 interpretEffectFAsync rt (L.Async asyncEff next) = do
   asyncVar <- runAsyncEffect rt asyncEff
   pure $ runAsyncEffect rt $ next $ asyncVar
 
-interpretEffectFAsync rt (L.Await (T.Async var) next) = do
-  val <- takeMVar var
-  pure $ runAsyncEffect rt $ next val
+interpretEffectFAsync rt (L.Await (T.Async conv var) next) = do
+  val <- readMVar var
+  pure $ runAsyncEffect rt $ next $ conv val
 
 interpretEffectFAsync rt (L.Await (T.Ready val) next) =
   pure $ runAsyncEffect rt $ next val
@@ -64,9 +64,9 @@ interpretEffectFAsyncSynchronously rt (L.Async asyncEff next) = do
   asyncVar <- runAsyncEffectSynchronously rt asyncEff
   pure $ runAsyncEffectSynchronously rt $ next $ asyncVar
 
-interpretEffectFAsyncSynchronously rt (L.Await (T.Async var) next) = do
-  val <- takeMVar var
-  pure $ runAsyncEffectSynchronously rt $ next val
+interpretEffectFAsyncSynchronously rt (L.Await (T.Async conv var) next) = do
+  val <- readMVar var
+  pure $ runAsyncEffectSynchronously rt $ next $ conv val
 
 interpretEffectFAsyncSynchronously rt (L.Await (T.Ready val) next) =
   pure $ runAsyncEffectSynchronously rt $ next val
@@ -87,8 +87,8 @@ interpretEffectF rt (L.RunIOEff ioEff next) =
 interpretEffectF rt (L.Async asyncEff next) =
   next <$> runAsyncEffect rt asyncEff
 
-interpretEffectF rt (L.Await (T.Async var) next) =
-  next <$> takeMVar var
+interpretEffectF rt (L.Await (T.Async conv var) next) =
+  next . conv <$> readMVar var
 
 interpretEffectF rt (L.Await (T.Ready val) next) =
   pure $ next val

@@ -16,13 +16,13 @@ interpretZIOF :: R.ZIORuntime -> L.ZIOF a -> IO a
 interpretZIOF rt (L.RunSynchronously eff next) = do
   asyncVar <- R.runAsyncEffectSynchronously rt eff
   case asyncVar of
-    T.Async var -> next <$> takeMVar var
+    T.Async conv var -> next . conv <$> readMVar var
     T.Ready val -> pure $ next val
 
 interpretZIOF rt (L.RunAsyncEffect eff next) = do
   asyncVar <- R.runAsyncEffect rt eff
   case asyncVar of
-    T.Async var -> next <$> takeMVar var
+    T.Async conv var -> next . conv <$> readMVar var
     T.Ready val -> pure $ next val
 
 interpretZIOF rt (L.RunEffect eff next) = do
