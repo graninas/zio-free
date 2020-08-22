@@ -11,7 +11,7 @@ import qualified ZIO.Runtime as R
 
 
 interpretIOEffF :: R.ZIORuntime -> L.IOF a -> IO a
-interpretIOEffF _ (L.RunIO f next) = do
+interpretIOEffF _ (L.EvalIO f next) = do
   !r <- f
   pure $ next r
 

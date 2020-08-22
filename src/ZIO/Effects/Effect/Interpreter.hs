@@ -18,35 +18,35 @@ import qualified ZIO.Types as T
 interpretAsyncEffectF
   :: R.ZIORuntime
   -> L.EffectF T.Async (L.AsyncEffect a)
-  -> IO (IO (T.Async a))
-interpretAsyncEffectF rt (L.RunIOEff ioEff next) = do
+  -> IO (T.Async a)
+interpretAsyncEffectF rt (L.EvalIOEff ioEff next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
     r <- R.runIOEff rt ioEff
     putMVar var r
-  pure $ runAsyncEffect rt $ next $ T.Async var
+  runAsyncEffect rt $ next $ T.Async var
 
-interpretAsyncEffectF rt (L.RunConsole consoleAct next) = do
+interpretAsyncEffectF rt (L.EvalConsole consoleAct next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
     r <- R.runConsole rt consoleAct
     putMVar var r
-  pure $ runAsyncEffect rt $ next $ T.Async var
+  runAsyncEffect rt $ next $ T.Async var
 
 interpretAsyncEffectF rt (L.Async asyncEff next) = do
   asyncVar <- runAsyncEffect rt asyncEff
-  pure $ runAsyncEffect rt $ next $ asyncVar
+  runAsyncEffect rt $ next $ asyncVar
 
 interpretAsyncEffectF rt (L.Await (T.Async var) next) = do
-  val <- takeMVar var
-  pure $ runAsyncEffect rt $ next val
+  val <- readMVar var
+  runAsyncEffect rt $ next val
 
 interpretAsyncEffectF rt (L.Await (T.Ready val) next) =
-  pure $ runAsyncEffect rt $ next val
+  runAsyncEffect rt $ next val
 
 runAsyncEffect :: R.ZIORuntime -> L.AsyncEffect a -> IO (T.Async a)
 runAsyncEffect rt (Pure v) = pure $ T.Ready v
-runAsyncEffect rt (Free f) = join $ interpretAsyncEffectF rt f
+runAsyncEffect rt (Free f) = interpretAsyncEffectF rt f
 
 -----------------------------------------
 
@@ -55,46 +55,46 @@ runAsyncEffect rt (Free f) = join $ interpretAsyncEffectF rt f
 interpretAsyncEffectFSynchronously
   :: R.ZIORuntime
   -> L.EffectF T.Async (L.AsyncEffect a)
-  -> IO (IO (T.Async a))
-interpretAsyncEffectFSynchronously rt (L.RunIOEff ioEff next) = do
+  -> IO (T.Async a)
+interpretAsyncEffectFSynchronously rt (L.EvalIOEff ioEff next) = do
   val <- R.runIOEff rt ioEff
-  pure $ runAsyncEffectSynchronously rt $ next $ T.Ready val
+  runAsyncEffectSynchronously rt $ next $ T.Ready val
 
-interpretAsyncEffectFSynchronously rt (L.RunConsole consoleAct next) = do
+interpretAsyncEffectFSynchronously rt (L.EvalConsole consoleAct next) = do
   val <- R.runConsole rt consoleAct
-  pure $ runAsyncEffectSynchronously rt $ next $ T.Ready val
+  runAsyncEffectSynchronously rt $ next $ T.Ready val
 
 interpretAsyncEffectFSynchronously rt (L.Async asyncEff next) = do
   asyncVar <- runAsyncEffectSynchronously rt asyncEff
-  pure $ runAsyncEffectSynchronously rt $ next $ asyncVar
+  runAsyncEffectSynchronously rt $ next $ asyncVar
 
 interpretAsyncEffectFSynchronously rt (L.Await (T.Async var) next) = do
-  val <- takeMVar var
-  pure $ runAsyncEffectSynchronously rt $ next val
+  val <- readMVar var
+  runAsyncEffectSynchronously rt $ next val
 
 interpretAsyncEffectFSynchronously rt (L.Await (T.Ready val) next) =
-  pure $ runAsyncEffectSynchronously rt $ next val
+  runAsyncEffectSynchronously rt $ next val
 
 runAsyncEffectSynchronously :: R.ZIORuntime -> L.AsyncEffect a -> IO (T.Async a)
 runAsyncEffectSynchronously rt (Pure v) = pure $ T.Ready v
-runAsyncEffectSynchronously rt (Free f) = join $ interpretAsyncEffectFSynchronously rt f
+runAsyncEffectSynchronously rt (Free f) = interpretAsyncEffectFSynchronously rt f
 
 -------------------------------------------
 
 -- Running a regular effect synchronously.
 
 interpretEffectF :: R.ZIORuntime -> L.EffectF Identity a -> IO a
-interpretEffectF rt (L.RunConsole consoleAct next) =
+interpretEffectF rt (L.EvalConsole consoleAct next) =
   next . Identity <$> R.runConsole rt consoleAct
 
-interpretEffectF rt (L.RunIOEff ioEff next) =
+interpretEffectF rt (L.EvalIOEff ioEff next) =
   next . Identity <$> R.runIOEff rt ioEff
 
 interpretEffectF rt (L.Async asyncEff next) =
   next <$> runAsyncEffect rt asyncEff
 
 interpretEffectF rt (L.Await (T.Async var) next) =
-  next <$> takeMVar var
+  next <$> readMVar var
 
 interpretEffectF rt (L.Await (T.Ready val) next) =
   pure $ next val

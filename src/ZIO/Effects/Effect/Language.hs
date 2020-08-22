@@ -14,8 +14,8 @@ import qualified ZIO.Effects.IO.Language as L
 import qualified ZIO.Types as T
 
 data EffectF m next where
-  RunConsole :: L.Console a -> (m a -> next) -> EffectF m next
-  RunIOEff :: L.IOEff a -> (m a -> next) -> EffectF m next
+  EvalConsole :: L.Console a -> (m a -> next) -> EffectF m next
+  EvalIOEff :: L.IOEff a -> (m a -> next) -> EffectF m next
   Async :: AsyncEffect a -> (T.Async a -> next) -> EffectF m next
   Await :: T.Async a -> (a -> next) -> EffectF m next
 
@@ -23,8 +23,8 @@ type Effect = Free (EffectF Identity)
 type AsyncEffect = Free (EffectF T.Async)
 
 instance Functor (EffectF m) where
-  fmap f (RunConsole consoleAct next) = RunConsole consoleAct (f . next)
-  fmap f (RunIOEff ioEff next) = RunIOEff ioEff (f . next)
+  fmap f (EvalConsole consoleAct next) = EvalConsole consoleAct (f . next)
+  fmap f (EvalIOEff ioEff next) = EvalIOEff ioEff (f . next)
   fmap f (Async asyncEff next) = Async asyncEff (f . next)
   fmap f (Await var next) = Await var (f . next)
 
@@ -37,8 +37,8 @@ class Asynchronous m where
   async :: AsyncEffect a -> m (T.Async a)
 
 class Awaitable m => Effect' m mode | m -> mode where
-  runConsole :: L.Console a -> m (mode a)
-  runIO :: IO a -> m (mode a)
+  evalConsole :: L.Console a -> m (mode a)
+  evalIO :: IO a -> m (mode a)
 
 -----------------
 
@@ -53,9 +53,9 @@ instance Asynchronous AsyncEffect where
 
 
 instance Effect' Effect Identity where
-  runConsole consoleAct = liftF $ RunConsole consoleAct id
-  runIO ioEff = liftF $ RunIOEff (L.runIO' ioEff) id
+  evalConsole consoleAct = liftF $ EvalConsole consoleAct id
+  evalIO ioEff = liftF $ EvalIOEff (L.evalIO' ioEff) id
 
 instance Effect' AsyncEffect T.Async where
-  runConsole consoleAct = liftF $ RunConsole consoleAct id
-  runIO ioEff = liftF $ RunIOEff (L.runIO' ioEff) id
+  evalConsole consoleAct = liftF $ EvalConsole consoleAct id
+  evalIO ioEff = liftF $ EvalIOEff (L.evalIO' ioEff) id

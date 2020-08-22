@@ -8,12 +8,12 @@ import           ZIO.Prelude
 
 
 data IOF next where
-  RunIO :: IO a -> (a -> next) -> IOF next
+  EvalIO :: IO a -> (a -> next) -> IOF next
 
 instance Functor IOF where
-  fmap f (RunIO ioAct next) = RunIO ioAct (f . next)
+  fmap f (EvalIO ioAct next) = EvalIO ioAct (f . next)
 
 type IOEff = Free IOF
 
-runIO' :: IO a -> IOEff a
-runIO' ioAct = liftF $ RunIO ioAct id
+evalIO' :: IO a -> IOEff a
+evalIO' ioAct = liftF $ EvalIO ioAct id
