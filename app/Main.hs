@@ -20,12 +20,18 @@ wgetGist gist = L.evalIO $ do
 gistLength :: L.AsyncEffect (Int, Int)
 gistLength = do
   aGist :: T.Async String <- wgetGist "01565065c18c01e88a5ebcbfbb96e397"
+  let aLen = length <$> aGist
 
-  gist1  :: String <- L.await aGist
-  gist2  :: String <- L.await aGist
-  gist3  :: String <- L.await aGist
+  _ :: String <- L.await aGist
+  _ :: String <- L.await aGist
+  _ :: String <- L.await aGist
+  -- pure (length gist1, length $ gist1 <> gist2 <> gist3)
 
-  pure (length gist1, length $ gist1 <> gist2 <> gist3)
+  len1 :: Int <- L.await aLen
+  len2 :: Int <- L.await aLen
+  len3 :: Int <- L.await aLen
+
+  pure (len1, len1 + len2 + len3)
 
 
 fibonacci :: Int -> Int

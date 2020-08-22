@@ -16,7 +16,7 @@ import qualified ZIO.Types as T
 data EffectF m next where
   EvalConsole :: L.Console a -> (m a -> next) -> EffectF m next
   EvalIOEff :: L.IOEff a -> (m a -> next) -> EffectF m next
-  Async :: AsyncEffect a -> (T.Async a -> next) -> EffectF m next
+  Async' :: AsyncEffect a -> (T.Async a -> next) -> EffectF m next
   Await :: T.Async a -> (a -> next) -> EffectF m next
 
 type Effect = Free (EffectF Identity)
@@ -25,7 +25,7 @@ type AsyncEffect = Free (EffectF T.Async)
 instance Functor (EffectF m) where
   fmap f (EvalConsole consoleAct next) = EvalConsole consoleAct (f . next)
   fmap f (EvalIOEff ioEff next) = EvalIOEff ioEff (f . next)
-  fmap f (Async asyncEff next) = Async asyncEff (f . next)
+  fmap f (Async' asyncEff next) = Async' asyncEff (f . next)
   fmap f (Await var next) = Await var (f . next)
 
 ----------------
@@ -49,7 +49,7 @@ instance Awaitable AsyncEffect where
   await var = liftF $ Await var id
 
 instance Asynchronous AsyncEffect where
-  async asyncEff = liftF $ Async asyncEff id
+  async asyncEff = liftF $ Async' asyncEff id
 
 
 instance Effect' Effect Identity where

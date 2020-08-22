@@ -24,22 +24,22 @@ interpretAsyncEffectF rt (L.EvalIOEff ioEff next) = do
   void $ forkIO $ do
     r <- R.runIOEff rt ioEff
     putMVar var r
-  runAsyncEffect rt $ next $ T.Async var
+  runAsyncEffect rt $ next $ T.Async id var
 
 interpretAsyncEffectF rt (L.EvalConsole consoleAct next) = do
   var <- newEmptyMVar
   void $ forkIO $ do
     r <- R.runConsole rt consoleAct
     putMVar var r
-  runAsyncEffect rt $ next $ T.Async var
+  runAsyncEffect rt $ next $ T.Async id var
 
-interpretAsyncEffectF rt (L.Async asyncEff next) = do
+interpretAsyncEffectF rt (L.Async' asyncEff next) = do
   asyncVar <- runAsyncEffect rt asyncEff
   runAsyncEffect rt $ next $ asyncVar
 
-interpretAsyncEffectF rt (L.Await (T.Async var) next) = do
+interpretAsyncEffectF rt (L.Await (T.Async conv var) next) = do
   val <- readMVar var
-  runAsyncEffect rt $ next val
+  runAsyncEffect rt $ next $ conv val
 
 interpretAsyncEffectF rt (L.Await (T.Ready val) next) =
   runAsyncEffect rt $ next val
@@ -64,13 +64,13 @@ interpretAsyncEffectFSynchronously rt (L.EvalConsole consoleAct next) = do
   val <- R.runConsole rt consoleAct
   runAsyncEffectSynchronously rt $ next $ T.Ready val
 
-interpretAsyncEffectFSynchronously rt (L.Async asyncEff next) = do
+interpretAsyncEffectFSynchronously rt (L.Async' asyncEff next) = do
   asyncVar <- runAsyncEffectSynchronously rt asyncEff
   runAsyncEffectSynchronously rt $ next $ asyncVar
 
-interpretAsyncEffectFSynchronously rt (L.Await (T.Async var) next) = do
+interpretAsyncEffectFSynchronously rt (L.Await (T.Async conv var) next) = do
   val <- readMVar var
-  runAsyncEffectSynchronously rt $ next val
+  runAsyncEffectSynchronously rt $ next $ conv val
 
 interpretAsyncEffectFSynchronously rt (L.Await (T.Ready val) next) =
   runAsyncEffectSynchronously rt $ next val
@@ -90,11 +90,11 @@ interpretEffectF rt (L.EvalConsole consoleAct next) =
 interpretEffectF rt (L.EvalIOEff ioEff next) =
   next . Identity <$> R.runIOEff rt ioEff
 
-interpretEffectF rt (L.Async asyncEff next) =
+interpretEffectF rt (L.Async' asyncEff next) =
   next <$> runAsyncEffect rt asyncEff
 
-interpretEffectF rt (L.Await (T.Async var) next) =
-  next <$> readMVar var
+interpretEffectF rt (L.Await (T.Async conv var) next) =
+  next . conv <$> readMVar var
 
 interpretEffectF rt (L.Await (T.Ready val) next) =
   pure $ next val
