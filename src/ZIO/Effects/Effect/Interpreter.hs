@@ -4,6 +4,7 @@ module ZIO.Effects.Effect.Interpreter where
 
 import           ZIO.Prelude
 
+import           Control.Exception (throwIO)
 import qualified ZIO.Effects.Effect.Language as L
 import qualified ZIO.Effects.Console.Interpreter as R
 import qualified ZIO.Effects.IO.Interpreter as R
@@ -20,29 +21,46 @@ interpretAsyncEffectF
   -> L.EffectF T.Async (L.AsyncEffect a)
   -> IO (T.Async a)
 interpretAsyncEffectF rt (L.EvalIOEff ioEff next) = do
-  var <- newEmptyMVar
+  eVar <- newEmptyMVar
   void $ forkIO $ do
-    r <- R.runIOEff rt ioEff
-    putMVar var r
-  runAsyncEffect rt $ next $ T.Async id var
+    er <- try $ R.runIOEff rt ioEff
+    putMVar eVar er
+  runAsyncEffect rt $ next $ T.Async id eVar
 
 interpretAsyncEffectF rt (L.EvalConsole consoleAct next) = do
-  var <- newEmptyMVar
+  eVar <- newEmptyMVar
   void $ forkIO $ do
-    r <- R.runConsole rt consoleAct
-    putMVar var r
-  runAsyncEffect rt $ next $ T.Async id var
+    er <- try $ R.runConsole rt consoleAct
+    putMVar eVar er
+  runAsyncEffect rt $ next $ T.Async id eVar
 
 interpretAsyncEffectF rt (L.Async' asyncEff next) = do
   asyncVar <- runAsyncEffect rt asyncEff
-  runAsyncEffect rt $ next $ asyncVar
+  runAsyncEffect rt $ next asyncVar
 
-interpretAsyncEffectF rt (L.Await (T.Async conv var) next) = do
-  val <- readMVar var
-  runAsyncEffect rt $ next $ conv val
+interpretAsyncEffectF rt (L.Await (T.Async conv eVar) next) = do
+  eVal <- readMVar eVar
+  case eVal of
+    Left err  -> throwIO err
+    Right val -> runAsyncEffect rt $ next $ conv val
 
 interpretAsyncEffectF rt (L.Await (T.Ready val) next) =
   runAsyncEffect rt $ next val
+
+interpretAsyncEffectF rt (L.ThrowExceptionEff exc _) = throwIO exc
+
+interpretAsyncEffectF rt (L.EvalSafelyAsyncEffect act next) = do
+  eResult <- try $ runAsyncEffect rt act
+  runAsyncEffect rt $ next $ case eResult of
+    Left err -> Left err
+    Right r  -> Right r
+
+interpretAsyncEffectF rt (L.EvalSafelyEffect act next) = do
+  eResult <- try $ runEffect rt act
+  pure $ next $ case eResult of
+    Left err -> Left err
+    Right r  -> Right r
+
 
 runAsyncEffect :: R.ZIORuntime -> L.AsyncEffect a -> IO (T.Async a)
 runAsyncEffect rt (Pure v) = pure $ T.Ready v
@@ -68,12 +86,28 @@ interpretAsyncEffectFSynchronously rt (L.Async' asyncEff next) = do
   asyncVar <- runAsyncEffectSynchronously rt asyncEff
   runAsyncEffectSynchronously rt $ next $ asyncVar
 
-interpretAsyncEffectFSynchronously rt (L.Await (T.Async conv var) next) = do
-  val <- readMVar var
-  runAsyncEffectSynchronously rt $ next $ conv val
+interpretAsyncEffectFSynchronously rt (L.Await (T.Async conv eVar) next) = do
+  eVal <- readMVar eVar
+  case eVal of
+    Left err  -> throwIO err
+    Right val -> runAsyncEffectSynchronously rt $ next $ conv val
 
 interpretAsyncEffectFSynchronously rt (L.Await (T.Ready val) next) =
   runAsyncEffectSynchronously rt $ next val
+
+interpretAsyncEffectFSynchronously rt (L.ThrowExceptionEff exc _) = throwIO exc
+
+interpretAsyncEffectFSynchronously rt (L.EvalSafelyAsyncEffect act next) = do
+  eResult <- try $ runAsyncEffectSynchronously rt act
+  pure $ next $ case eResult of
+    Left err -> Left err
+    Right r  -> Right r
+
+interpretAsyncEffectFSynchronously rt (L.EvalSafelyEffect act next) = do
+  eResult <- try $ runEffect rt act
+  pure $ next $ case eResult of
+    Left err -> Left err
+    Right r  -> Right r
 
 runAsyncEffectSynchronously :: R.ZIORuntime -> L.AsyncEffect a -> IO (T.Async a)
 runAsyncEffectSynchronously rt (Pure v) = pure $ T.Ready v
@@ -93,11 +127,28 @@ interpretEffectF rt (L.EvalIOEff ioEff next) =
 interpretEffectF rt (L.Async' asyncEff next) =
   next <$> runAsyncEffect rt asyncEff
 
-interpretEffectF rt (L.Await (T.Async conv var) next) =
-  next . conv <$> readMVar var
+interpretEffectF rt (L.Await (T.Async conv eVar) next) = do
+  eVal <- readMVar eVar
+  case eVal of
+    Left err  -> throwIO err
+    Right val -> pure $ next $ conv val
 
 interpretEffectF rt (L.Await (T.Ready val) next) =
   pure $ next val
+
+interpretEffectF rt (L.ThrowExceptionEff exc _) = throwIO exc
+
+interpretEffectF rt (L.EvalSafelyAsyncEffect act next) = do
+  eResult <- try $ runAsyncEffectSynchronously rt act
+  pure $ next $ case eResult of
+    Left err -> Left err
+    Right r  -> Right r
+
+interpretEffectF rt (L.EvalSafelyEffect act next) = do
+  eResult <- try $ runEffect rt act
+  pure $ next $ case eResult of
+    Left err -> Left err
+    Right r  -> Right r
 
 runEffect :: R.ZIORuntime -> L.Effect a -> IO a
 runEffect rt = foldFree (interpretEffectF rt)

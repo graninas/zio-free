@@ -3,6 +3,7 @@ module Main where
 import qualified Prelude as P
 import           ZIO.Prelude hiding (putStrLn, getLine)
 import qualified System.Process as Proc
+import           Control.Exception (throwIO)
 
 import qualified ZIO.Types as T
 import qualified ZIO.Runtime as R
@@ -11,28 +12,28 @@ import qualified ZIO.Language as L
 import qualified ZIO.Effects.Effect.Language as L
 
 
+data Dummy = Dummy deriving (Show, Typeable)
+instance Exception Dummy
+
 wgetGist :: String -> L.AsyncEffect (T.Async String)
 wgetGist gist = L.evalIO $ do
   Proc.readCreateProcess (Proc.shell ("wget https://gist.github.com/graninas/" <> gist)) ""
   P.readFile gist
+  throwIO Dummy
 
-
-gistLength :: L.AsyncEffect (Int, Int)
-gistLength = do
+gistLengthUnsafe :: L.AsyncEffect (Int, Int)
+gistLengthUnsafe = do
   aGist :: T.Async String <- wgetGist "01565065c18c01e88a5ebcbfbb96e397"
   let aLen = length <$> aGist
+  len :: Int <- L.await aLen
+  pure (len, len * 2)
 
-  _ :: String <- L.await aGist
-  _ :: String <- L.await aGist
-  _ :: String <- L.await aGist
-  -- pure (length gist1, length $ gist1 <> gist2 <> gist3)
-
-  len1 :: Int <- L.await aLen
-  len2 :: Int <- L.await aLen
-  len3 :: Int <- L.await aLen
-
-  pure (len1, len1 + len2 + len3)
-
+gistLengthSafe :: L.AsyncEffect ()
+gistLengthSafe = do
+  eVal <- L.evalSafely gistLengthUnsafe
+  void $ case eVal of
+    Left err -> L.evalIO $ P.putStrLn $ "Exception got: " <> show err
+    Right val -> L.evalIO $ P.putStrLn $ "You got: " <> show val
 
 fibonacci :: Int -> Int
 fibonacci n = head $ drop n fibs
@@ -74,6 +75,4 @@ main = R.withZIORuntime $ \rt -> do
   -- print "You got:"
   -- print (fib, fact)
 
-  v <- R.runZIO rt $ L.evalAsyncEffect gistLength
-  print "You got:"
-  print v
+  void $ R.runZIO rt $ L.evalAsyncEffect gistLengthSafe

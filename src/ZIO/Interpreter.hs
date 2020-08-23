@@ -25,8 +25,6 @@ interpretZIOF rt (L.EvalSynchronously eff next) = do
 interpretZIOF rt (L.EvalEffect eff next) = do
   next <$> R.runEffect rt eff
 
-interpretZIOF rt (L.ThrowException exc _) = throwIO exc
-
 interpretZIOF rt (L.EvalSafely act next) = do
   eResult <- try $ runZIO rt act
   pure $ next $ case eResult of

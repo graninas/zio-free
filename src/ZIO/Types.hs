@@ -7,7 +7,7 @@ import ZIO.Prelude
 --   Ready :: a -> Async a
 
 data Async a
-  = forall b. Async (b -> a) (MVar b)
+  = forall b. Async (b -> a) (MVar (Either SomeException b))
   | Ready a
 
 instance Functor Async where
