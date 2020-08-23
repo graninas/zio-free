@@ -24,36 +24,20 @@ relayMVar inputVar outputVar = do
   val <- readMVar inputVar
   putMVar outputVar val
 
-relayAsyncVar :: T.Async a -> MVar a -> IO ()
+relayAsyncVar :: T.Async a -> MVar (Either SomeException a) -> IO ()
 relayAsyncVar inputAsyncVar outputVar =
   case inputAsyncVar of
-    T.Ready val -> putMVar outputVar val
+    T.Ready val -> putMVar outputVar $ Right val
     T.Async conv eVar -> do
       eVal <- readMVar eVar
-      putMVar outputVar $ conv eVal
+      putMVar outputVar $ case eVal of
+        Left err  -> Left err
+        Right val -> Right $ conv val
 
 awaitAsyncVar :: T.Async a -> IO a
 awaitAsyncVar (T.Ready val) = pure val
 awaitAsyncVar (T.Async conv eVar) = do
   eVal <- readMVar eVar
-  pure $ conv eVal
-
-
--- relayAsyncVar :: T.Async a -> MVar a -> IO ()
--- relayAsyncVar inputAsyncVar outputVar =
---   case inputAsyncVar of
---     T.Ready val -> putMVar outputVar val
---     T.Async conv eVar -> do
---       eVal <- readMVar eVar
---       case eVal of
---         Left err -> throwIO err
---         Right val -> putMVar outputVar $ conv val
---
--- awaitAsyncVar :: T.Async a -> IO a
--- awaitAsyncVar (T.Ready val) = pure val
--- awaitAsyncVar (T.Async conv eVar) = do
---   eVal <- readMVar eVar
---   case eVal of
---     Left err -> throwIO err
---     Right val -> pure $ conv val
---
+  case eVal of
+    Left err -> throwIO err
+    Right val -> pure $ conv val

@@ -46,23 +46,16 @@ interpretAsyncEffectF rt (L.EvalEffect eff next) = do
 interpretAsyncEffectF rt (L.Async asyncEff next) = do
   eVar <- newEmptyMVar
   void $ forkIO $ do
-    asyncVar <- runAsyncEffect rt asyncEff         -- FIXME: try
-    R.relayAsyncVar asyncVar eVar
+    eAsyncVar <- try $ runAsyncEffect rt asyncEff
+    case eAsyncVar of
+      Left err       -> putMVar eVar $ Left err
+      Right asyncVar -> R.relayAsyncVar asyncVar eVar
   runAsyncEffect rt $ next $ T.Async id eVar
 
---
--- FIXME: safe
--- interpretAsyncEffectF rt (L.Await (T.Async conv eVar) next) = do
---   eVal <- readMVar eVar
---   case eVal of
---     Left err  -> throwIO err
---     Right val -> runAsyncEffect rt $ next $ conv val
-interpretAsyncEffectF rt (L.Await (T.Async conv eVar) next) = do
-  eVal <- readMVar eVar
-  runAsyncEffect rt $ next $ conv eVal
-
-interpretAsyncEffectF rt (L.Await (T.Ready val) next) =
+interpretAsyncEffectF rt (L.Await asyncVar next) = do
+  val <- R.awaitAsyncVar asyncVar
   runAsyncEffect rt $ next val
+
 
 
 runAsyncEffect :: R.ZIORuntime -> L.AsyncEffect a -> IO (T.Async a)

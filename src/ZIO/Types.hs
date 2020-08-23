@@ -4,8 +4,7 @@ import ZIO.Prelude
 
 
 data Async a
-  -- = forall b. Async (b -> a) (MVar (Either SomeException b))
-  = forall b. Async (b -> a) (MVar b)
+  = forall b. Async (b -> a) (MVar (Either SomeException b))
   | Ready a
 
 instance Functor Async where

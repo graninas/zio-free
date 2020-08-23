@@ -28,6 +28,11 @@ wgetGistIO' gist = do
 wgetGist :: String -> L.AsyncEffect (T.Async String)
 wgetGist gist = L.evalIO $ wgetGistIO gist
 
+wgetGistBroken :: String -> L.AsyncEffect (T.Async String)
+wgetGistBroken gist = L.evalIO $ do
+  wgetGistIO gist
+  throwIO Dummy
+
 wgetGist' :: String -> L.AsyncEffect (T.Async (Either SomeException String))
 wgetGist' gist = L.evalIO $ wgetGistIO' gist
 
@@ -87,7 +92,7 @@ sampleApp1 = void $ L.evalAsyncEffect appLogic
 
 gistLengthUnsafe :: L.AsyncEffect (Int, Int)
 gistLengthUnsafe = do
-  aGist :: T.Async String <- wgetGist "01565065c18c01e88a5ebcbfbb96e397"
+  aGist :: T.Async String <- wgetGistBroken "01565065c18c01e88a5ebcbfbb96e397"
   let aLen = length <$> aGist
   len :: Int <- L.await aLen
   pure (len, len * 2)
@@ -162,6 +167,7 @@ sampleApp4 = L.evalAsyncEffect $ do
     , print 12
     ]
   mapM_ L.await vars
+
 
 
 main :: IO ()
