@@ -148,6 +148,17 @@ sampleApp3 = do
   fibAndFact <- L.evalAsyncEffect asyncApp
   void $ L.evalIO $ print fibAndFact
 
+syncApp :: L.Effect (Int, Int)
+syncApp = do
+  fib  <- runIdentity <$> L.evalIO fibIO
+  fact <- runIdentity <$> L.evalIO factIO
+  pure (fib, fact)
+
+sampleApp3a :: L.ZIO ()
+sampleApp3a = do
+  fibAndFact <- L.evalEffect syncApp
+  void $ L.evalIO $ print fibAndFact
+
 -- Sample 4
 
 sampleApp4 :: L.ZIO ()
