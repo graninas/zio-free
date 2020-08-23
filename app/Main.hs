@@ -28,11 +28,11 @@ gistLengthUnsafe = do
   len :: Int <- L.await aLen
   pure (len, len * 2)
 
-gistLengthSafe :: L.AsyncEffect ()
+gistLengthSafe :: L.Effect ()
 gistLengthSafe = do
   eVal <- L.evalSafely gistLengthUnsafe
   void $ case eVal of
-    Left err -> L.evalIO $ P.putStrLn $ "Exception got: " <> show err
+    Left err  -> L.evalIO $ P.putStrLn $ "Exception got: " <> show err
     Right val -> L.evalIO $ P.putStrLn $ "You got: " <> show val
 
 fibonacci :: Int -> Int
@@ -75,4 +75,4 @@ main = R.withZIORuntime $ \rt -> do
   -- print "You got:"
   -- print (fib, fact)
 
-  void $ R.runZIO rt $ L.evalAsyncEffect gistLengthSafe
+  void $ R.runZIO rt $ L.evalEffect gistLengthSafe
