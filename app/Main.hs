@@ -17,21 +17,14 @@ wgetGist gist = L.evalIO $ do
   P.readFile gist
 
 
-gistLength :: L.AsyncEffect (Int, Int)
+gistLength :: L.AsyncEffect (String, Int)
 gistLength = do
   aGist :: T.Async String <- wgetGist "01565065c18c01e88a5ebcbfbb96e397"
   let aLen = length <$> aGist
 
-  _ :: String <- L.await aGist
-  _ :: String <- L.await aGist
-  _ :: String <- L.await aGist
-  -- pure (length gist1, length $ gist1 <> gist2 <> gist3)
+  let aTuple = (,) <$> aGist <*> aLen
 
-  len1 :: Int <- L.await aLen
-  len2 :: Int <- L.await aLen
-  len3 :: Int <- L.await aLen
-
-  pure (len1, len1 + len2 + len3)
+  L.await aTuple
 
 
 fibonacci :: Int -> Int
