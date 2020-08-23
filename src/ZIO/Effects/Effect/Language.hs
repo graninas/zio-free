@@ -7,34 +7,13 @@ module ZIO.Effects.Effect.Language where
 
 import           ZIO.Prelude
 import qualified Prelude as P
-import qualified System.Process as Proc
+import           Control.Exception (throwIO)
 
 import qualified ZIO.Effects.Console.Language as L
 import qualified ZIO.Effects.IO.Language as L
 import qualified ZIO.Types as T
 
-data EffectF m next where
-  EvalConsole :: L.Console a -> (m a -> next) -> EffectF m next
-  EvalIOEff :: L.IOEff a -> (m a -> next) -> EffectF m next
-  EvalAsyncEffectInAsync :: AsyncEffect a -> (T.Async a -> next) -> EffectF m next
-  EvalAsyncEffectInSync :: AsyncEffect a -> (a -> next) -> EffectF m next
 
-  Await :: T.Async a -> (a -> next) -> EffectF m next
-
-  ThrowExceptionEff :: forall m a e next. Exception e
-    => e
-    -> (a -> next)
-    -> EffectF m next
-
-  -- EvalSafelyAsyncEffect :: forall m a next
-  --   . AsyncEffect a
-  --  -> (T.Async a -> next)
-  --  -> EffectF m next
-  --
-  -- EvalSafelyEffect :: forall m a e next. Exception e
-  --  => Effect a
-  --  -> (Either e a -> next)
-  --  -> EffectF m next
 
 {- -------------------------------------------------------------
 
@@ -53,6 +32,11 @@ evalSafely :: AsyncEffect a -> AsyncEffect (Either SomeException a)  -- catches 
 sync :: Effect a -> AsyncEffect a                          -- Effect batch works as sync,
                                                            -- operation is blocking (not async)
                                                            -- can throw
+
+    -- AsyncEffect batch works as sync,
+    -- operation is blocking (not async)
+    -- can throw
+asSync :: AsyncEffect a -> AsyncEffect a
 
 
 
@@ -209,30 +193,67 @@ f = do
 
 ------------------------------------------------------------- -}
 
-type Effect = Free (EffectF Identity)
-type AsyncEffect = Free (EffectF T.Async)
 
-instance Functor (EffectF m) where
-  fmap f (EvalConsole consoleAct next) = EvalConsole consoleAct (f . next)
+-- Design 1 is implemented here.
+
+data EffectF next where
+  -- | Both operations can throw
+  EvalConsole :: L.Console a -> (Identity a -> next) -> EffectF next
+  EvalIOEff   :: L.IOEff a -> (Identity a -> next) -> EffectF next
+
+  -- impossible
+  -- EvalAsyncEffect :: AsyncEffect a -> (a -> next) -> Effect next
+
+  -- | Catches exceptions
+  EvalEffectSafely
+    :: forall e a next
+     . Exception e
+    => Effect a -> (Either e a -> next) -> EffectF next
+
+instance Functor EffectF where
+  fmap f (EvalConsole cAct next) = EvalConsole cAct (f . next)
   fmap f (EvalIOEff ioEff next) = EvalIOEff ioEff (f . next)
-  fmap f (EvalAsyncEffectInAsync asyncEff next) = EvalAsyncEffectInAsync asyncEff (f . next)
-  fmap f (EvalAsyncEffectInSync asyncEff next) = EvalAsyncEffectInSync asyncEff (f . next)
-  fmap f (Await var next) = Await var (f . next)
-  fmap f (ThrowExceptionEff exc next) = ThrowExceptionEff exc (f . next)
-  -- fmap f (EvalSafelyAsyncEffect act next) = EvalSafelyAsyncEffect act (f . next)
-  -- fmap f (EvalSafelyEffect act next) = EvalSafelyEffect act (f . next)
+  fmap f (EvalEffectSafely act next) = EvalEffectSafely act (f . next)
+
+type Effect = Free EffectF
+
+
+data AsyncEffectF next where
+  -- | Effect batch works as sync, operation is blocking (not async). Can throw
+  EvalEffect :: Effect a -> (a -> next) -> AsyncEffectF next
+
+  -- | Evals async effect asynchronously, catches exceptions, encloses into Async.
+  -- 'async' operation.
+  Async :: AsyncEffect a -> (T.Async a -> next) -> AsyncEffectF next
+
+  -- | Await for a variable (blocking operation).
+  --   Can throw if Async has Exception.
+  Await :: T.Async a -> (a -> next) -> AsyncEffectF next
+
+  -- | Catches exceptions
+  EvalAsyncEffectSafely
+    :: forall e a next. Exception e
+    => AsyncEffect a -> (Either e a -> next) -> AsyncEffectF next
+
+type AsyncEffect = Free AsyncEffectF
+
+instance Functor AsyncEffectF where
+  fmap f (EvalEffect eff next) = EvalEffect eff (f . next)
+  fmap f (Async asyncEff next) = Async asyncEff (f . next)
+  fmap f (Await asyncVar next) = Await asyncVar (f . next)
+  fmap f (EvalAsyncEffectSafely asyncEff next) = EvalAsyncEffectSafely asyncEff (f . next)
 
 ----------------
 
-class Awaitable m where
+class Awaiting m where
   await :: T.Async a -> m a
 
-class AsyncEvaluable m where
-  async :: AsyncEffect a -> m a
-
-class Awaitable m => Effect' m mode | m -> mode where
+class Effect' m mode | m -> mode where
   evalConsole :: L.Console a -> m (mode a)
-  evalIO :: IO a -> m (mode a)
+  evalIO      :: IO a -> m (mode a)
+
+class EffectEvaluating m where
+  evalEffect :: Effect a -> m a
 
 class Throw m where
   throwException :: forall a e. Exception e => e -> m a
@@ -249,35 +270,32 @@ evalSafely' = evalSafely
 
 -------------------------
 
-instance Throw Effect where
-  throwException ex = liftF $ ThrowExceptionEff ex id
+async :: AsyncEffect a -> AsyncEffect (T.Async a)
+async asyncEff = liftF $ Async asyncEff id
 
-instance Throw AsyncEffect where
-  throwException ex = liftF $ ThrowExceptionEff ex id
+instance EffectEvaluating AsyncEffect where
+  evalEffect eff = liftF $ EvalEffect eff id
 
--- instance Safe Effect where
---   evalSafely act = liftF $ EvalSafelyEffect act id
---
--- instance Safe AsyncEffect where
---   evalSafely act = liftF $ EvalSafelyAsyncEffect act id
-
-instance Awaitable Effect where
-  await var = liftF $ Await var id
-
-instance Awaitable AsyncEffect where
-  await var = liftF $ Await var id
-
-instance AsyncEvaluable AsyncEffect where
-  async asyncEff = liftF $ EvalAsyncEffectInAsync asyncEff id
-
-instance AsyncEvaluable Effect where
-  async asyncEff = liftF $ EvalAsyncEffectInSync asyncEff id
-
+instance Awaiting AsyncEffect where
+  await asyncVar = liftF $ Await asyncVar id
 
 instance Effect' Effect Identity where
   evalConsole consoleAct = liftF $ EvalConsole consoleAct id
-  evalIO ioEff = liftF $ EvalIOEff (L.evalIO' ioEff) id
+  evalIO ioAct           = liftF $ EvalIOEff (L.evalIO' ioAct) id
 
 instance Effect' AsyncEffect T.Async where
-  evalConsole consoleAct = liftF $ EvalConsole consoleAct id
-  evalIO ioEff = liftF $ EvalIOEff (L.evalIO' ioEff) id
+  evalConsole consoleAct = async $ evalEffect (runIdentity <$> evalConsole consoleAct)
+  evalIO ioAct           = async $ evalEffect (runIdentity <$> evalIO ioAct)
+
+instance Throw Effect where
+  throwException ex = runIdentity <$> (evalIO $ throwIO ex)
+
+instance Throw AsyncEffect where
+  throwException ex = evalEffect $ throwException ex
+
+--
+-- instance Safe Effect where
+--   evalSafely eff = liftF $ EvalEffectSafely eff id
+--
+-- instance Safe AsyncEffect where
+--   evalSafely asyncEff = liftF $ EvalAsyncEffectSafely asyncEff id

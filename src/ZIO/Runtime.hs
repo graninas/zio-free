@@ -19,6 +19,10 @@ withZIORuntime :: (ZIORuntime -> IO a) -> IO a
 withZIORuntime zioRtAct =
   bracket createZIORuntime clearZIORuntime zioRtAct
 
+relayMVar :: MVar a -> MVar a -> IO ()
+relayMVar inputVar outputVar = do
+  val <- readMVar inputVar
+  putMVar outputVar val
 
 relayAsyncVar :: T.Async a -> MVar a -> IO ()
 relayAsyncVar inputAsyncVar outputVar =
@@ -26,19 +30,30 @@ relayAsyncVar inputAsyncVar outputVar =
     T.Ready val -> putMVar outputVar val
     T.Async conv eVar -> do
       eVal <- readMVar eVar
-      case eVal of
-        Left err -> throwIO err
-        Right val -> putMVar outputVar $ conv val
+      putMVar outputVar $ conv eVal
 
 awaitAsyncVar :: T.Async a -> IO a
 awaitAsyncVar (T.Ready val) = pure val
 awaitAsyncVar (T.Async conv eVar) = do
   eVal <- readMVar eVar
-  case eVal of
-    Left err -> throwIO err
-    Right val -> pure $ conv val
+  pure $ conv eVal
 
-relayMVar :: MVar a -> MVar a -> IO ()
-relayMVar inputVar outputVar = do
-  val <- readMVar inputVar
-  putMVar outputVar val
+
+-- relayAsyncVar :: T.Async a -> MVar a -> IO ()
+-- relayAsyncVar inputAsyncVar outputVar =
+--   case inputAsyncVar of
+--     T.Ready val -> putMVar outputVar val
+--     T.Async conv eVar -> do
+--       eVal <- readMVar eVar
+--       case eVal of
+--         Left err -> throwIO err
+--         Right val -> putMVar outputVar $ conv val
+--
+-- awaitAsyncVar :: T.Async a -> IO a
+-- awaitAsyncVar (T.Ready val) = pure val
+-- awaitAsyncVar (T.Async conv eVar) = do
+--   eVal <- readMVar eVar
+--   case eVal of
+--     Left err -> throwIO err
+--     Right val -> pure $ conv val
+--

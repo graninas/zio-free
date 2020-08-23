@@ -2,12 +2,10 @@ module ZIO.Types where
 
 import ZIO.Prelude
 
--- data Async a where
---   Async :: (b -> a) -> MVar b -> Async a
---   Ready :: a -> Async a
 
 data Async a
-  = forall b. Async (b -> a) (MVar (Either SomeException b))
+  -- = forall b. Async (b -> a) (MVar (Either SomeException b))
+  = forall b. Async (b -> a) (MVar b)
   | Ready a
 
 instance Functor Async where
