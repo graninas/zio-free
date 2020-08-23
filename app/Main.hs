@@ -143,6 +143,27 @@ sampleApp3 = do
   fibAndFact <- L.evalAsyncEffect asyncApp
   void $ L.evalIO $ print fibAndFact
 
+-- Sample 4
+
+sampleApp4 :: L.ZIO ()
+sampleApp4 = L.evalAsyncEffect $ do
+  vars <- mapM L.evalIO
+    [ print 1
+    , threadDelay (1000 * 1000 * 2) >> print 2
+    , print 3
+    , threadDelay (1000 * 1000 * 3) >> print 4
+    , print 5
+    , threadDelay (1000 * 1000 * 1) >> print 6
+    , threadDelay (1000 * 1000 * 4) >> print 7
+    , print 8
+    , print 9
+    , threadDelay (1000 * 1000 * 3) >> print 10
+    , print 11
+    , print 12
+    ]
+  mapM_ L.await vars
+
+
 main :: IO ()
 main = R.withZIORuntime $ \rt ->
-  R.runZIO rt sampleApp1
+  R.runZIO rt sampleApp4
