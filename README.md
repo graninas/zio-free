@@ -1,2 +1,3 @@
 # zio-free
-Free monadic clone of Scala's ZIO (experimental)
+
+Showcase of an asyncronous Free monad based framework (ZIO-like)
